@@ -1,0 +1,511 @@
+{
+  "entities": {
+    "Proprietario": {
+      "title": "Proprietario",
+      "description": "Proprietário de veículos e contratante de motoristas da El Nathan Transportes.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo cadastro.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nomeCompleto": {
+          "type": "string",
+          "description": "Nome completo ou razão social do proprietário.",
+          "maxLength": 200
+        },
+        "cpfCnpj": {
+          "type": "string",
+          "description": "CPF ou CNPJ do proprietário (vazio se pendente).",
+          "maxLength": 32
+        },
+        "contato": {
+          "type": "string",
+          "description": "Telefone, WhatsApp ou e-mail de contato.",
+          "maxLength": 120
+        },
+        "situacaoCadastral": {
+          "type": "string",
+          "description": "Situação cadastral do proprietário.",
+          "enum": ["aprovado", "pendente", "documentacao_vencida", "em_analise"],
+          "maxLength": 32
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações internas sobre o proprietário.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp de criação."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp da última atualização."
+        }
+      },
+      "required": ["ownerUid", "nomeCompleto", "cpfCnpj", "contato", "situacaoCadastral", "createdAt", "updatedAt"]
+    },
+    "Motorista": {
+      "title": "Motorista",
+      "description": "Motorista cadastrado com dados de CNH e vínculo opcional a proprietário.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo cadastro.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nomeCompleto": {
+          "type": "string",
+          "description": "Nome completo do motorista.",
+          "maxLength": 200
+        },
+        "cpf": {
+          "type": "string",
+          "description": "CPF do motorista (vazio se pendente).",
+          "maxLength": 20
+        },
+        "cnh": {
+          "type": "string",
+          "description": "Número de registro da CNH (vazio se pendente).",
+          "maxLength": 30
+        },
+        "categoriaCnh": {
+          "type": "string",
+          "description": "Categoria da CNH (A, B, C, D, E, etc.).",
+          "maxLength": 10
+        },
+        "validadeCnh": {
+          "type": "string",
+          "description": "Data de validade da CNH no formato YYYY-MM-DD (vazio se pendente).",
+          "maxLength": 20
+        },
+        "telefone": {
+          "type": "string",
+          "description": "Telefone do motorista (vazio se pendente).",
+          "maxLength": 40
+        },
+        "proprietarioId": {
+          "type": "string",
+          "description": "ID do proprietário vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "situacaoCadastral": {
+          "type": "string",
+          "description": "Situação cadastral do motorista.",
+          "enum": ["aprovado", "pendente", "documentacao_vencida", "em_analise"],
+          "maxLength": 32
+        },
+        "camposPendentes": {
+          "type": "array",
+          "description": "Lista de campos não identificados na extração e pendentes de preenchimento manual."
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações sobre o motorista.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "nomeCompleto", "cpf", "cnh", "categoriaCnh", "validadeCnh", "telefone", "proprietarioId", "situacaoCadastral", "camposPendentes", "createdAt", "updatedAt"]
+    },
+    "Veiculo": {
+      "title": "Veiculo",
+      "description": "Veículo da frota vinculado a um proprietário e opcionalmente a um motorista.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo cadastro.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "placa": {
+          "type": "string",
+          "description": "Placa do veículo.",
+          "maxLength": 16
+        },
+        "modelo": {
+          "type": "string",
+          "description": "Modelo do veículo.",
+          "maxLength": 120
+        },
+        "marca": {
+          "type": "string",
+          "description": "Marca/fabricante do veículo.",
+          "maxLength": 80
+        },
+        "ano": {
+          "type": "string",
+          "description": "Ano de fabricação/modelo.",
+          "maxLength": 12
+        },
+        "renavam": {
+          "type": "string",
+          "description": "Código RENAVAM do veículo.",
+          "maxLength": 30
+        },
+        "tipoVeiculo": {
+          "type": "string",
+          "description": "Categoria operacional do veículo na transportadora.",
+          "enum": ["", "Van", "HR", "VUC", "Médio"],
+          "maxLength": 20
+        },
+        "proprietarioId": {
+          "type": "string",
+          "description": "ID do proprietário do veículo ou vazio se pendente.",
+          "maxLength": 128
+        },
+        "motoristaId": {
+          "type": "string",
+          "description": "ID do motorista principal ou vazio.",
+          "maxLength": 128
+        },
+        "validadeCrlv": {
+          "type": "string",
+          "description": "Data de validade/exercício do CRLV no formato YYYY-MM-DD (ou vazio se pendente).",
+          "maxLength": 20
+        },
+        "situacaoCadastral": {
+          "type": "string",
+          "description": "Situação cadastral do veículo.",
+          "enum": ["aprovado", "pendente", "documentacao_vencida", "em_analise"],
+          "maxLength": 32
+        },
+        "camposPendentes": {
+          "type": "array",
+          "description": "Lista de campos pendentes de preenchimento manual."
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações sobre o veículo.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "placa", "modelo", "marca", "ano", "renavam", "tipoVeiculo", "proprietarioId", "motoristaId", "validadeCrlv", "situacaoCadastral", "camposPendentes", "createdAt", "updatedAt"]
+    },
+    "Documento": {
+      "title": "Documento",
+      "description": "Registro documental (CNH, CRLV, Comprovantes) vinculado a motorista, veículo ou proprietário.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo documento.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "tipoDocumento": {
+          "type": "string",
+          "description": "Tipo do documento enviado.",
+          "enum": ["CNH", "CRLV", "Comprovante de Endereço", "ANTT / RNTRC", "Contrato / Procuração", "Outro"],
+          "maxLength": 60
+        },
+        "nomeArquivo": {
+          "type": "string",
+          "description": "Nome original do arquivo PDF ou imagem.",
+          "maxLength": 200
+        },
+        "mimeType": {
+          "type": "string",
+          "description": "MIME type do documento.",
+          "maxLength": 100
+        },
+        "entidadeTipo": {
+          "type": "string",
+          "description": "Tipo da entidade vinculada.",
+          "enum": ["motorista", "veiculo", "proprietario"],
+          "maxLength": 20
+        },
+        "entidadeId": {
+          "type": "string",
+          "description": "ID da entidade vinculada.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entidadeNome": {
+          "type": "string",
+          "description": "Nome ou placa da entidade vinculada para exibição rápida.",
+          "maxLength": 200
+        },
+        "dataValidade": {
+          "type": "string",
+          "description": "Data de validade do documento (YYYY-MM-DD ou vazio).",
+          "maxLength": 20
+        },
+        "statusDocumento": {
+          "type": "string",
+          "description": "Status de validade/análise do documento.",
+          "enum": ["valido", "vencido", "a_vencer", "pendente", "em_analise"],
+          "maxLength": 30
+        },
+        "camposPendentes": {
+          "type": "array",
+          "description": "Campos não identificados no documento enviado."
+        },
+        "resumoExtracao": {
+          "type": "string",
+          "description": "Resumo objetivo do que foi identificado no documento.",
+          "maxLength": 600
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações sobre o documento.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "tipoDocumento", "nomeArquivo", "mimeType", "entidadeTipo", "entidadeId", "entidadeNome", "dataValidade", "statusDocumento", "camposPendentes", "createdAt", "updatedAt"]
+    },
+    "LancamentoFinanceiro": {
+      "title": "LancamentoFinanceiro",
+      "description": "Lançamento financeiro (receita, despesa ou repasse) vinculado opcionalmente a proprietário, motorista ou veículo.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo lançamento.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "descricao": {
+          "type": "string",
+          "description": "Descrição do lançamento financeiro.",
+          "maxLength": 200
+        },
+        "tipo": {
+          "type": "string",
+          "description": "Natureza do lançamento financeiro.",
+          "enum": ["receita", "despesa", "repasse"],
+          "maxLength": 20
+        },
+        "categoria": {
+          "type": "string",
+          "description": "Nome da categoria financeira aplicada.",
+          "maxLength": 80
+        },
+        "valor": {
+          "type": "number",
+          "description": "Valor monetário em BRL."
+        },
+        "dataVencimento": {
+          "type": "string",
+          "description": "Data de vencimento no formato YYYY-MM-DD (ou vazio).",
+          "maxLength": 20
+        },
+        "dataPagamento": {
+          "type": "string",
+          "description": "Data de pagamento/recebimento no formato YYYY-MM-DD (ou vazio).",
+          "maxLength": 20
+        },
+        "status": {
+          "type": "string",
+          "description": "Situação de liquidação do lançamento.",
+          "enum": ["pago", "pendente", "atrasado", "cancelado"],
+          "maxLength": 20
+        },
+        "proprietarioId": {
+          "type": "string",
+          "description": "ID do proprietário vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "motoristaId": {
+          "type": "string",
+          "description": "ID do motorista vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "veiculoId": {
+          "type": "string",
+          "description": "ID do veículo vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações sobre o lançamento.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "descricao", "tipo", "categoria", "valor", "dataVencimento", "dataPagamento", "status", "proprietarioId", "motoristaId", "veiculoId", "createdAt", "updatedAt"]
+    },
+    "CategoriaFinanceira": {
+      "title": "CategoriaFinanceira",
+      "description": "Categoria personalizada criada pelo operador para classificar lançamentos financeiros.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pela categoria.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "nome": {
+          "type": "string",
+          "description": "Nome da categoria financeira.",
+          "maxLength": 80
+        },
+        "tipoPadrao": {
+          "type": "string",
+          "description": "Tipo padrão associado à categoria.",
+          "enum": ["receita", "despesa", "repasse"],
+          "maxLength": 20
+        },
+        "descricao": {
+          "type": "string",
+          "description": "Descrição breve da categoria.",
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "nome", "tipoPadrao", "descricao", "createdAt", "updatedAt"]
+    },
+    "Frete": {
+      "title": "Frete",
+      "description": "Registro operacional de frete e rota vinculado a proprietário, motorista e veículo.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo frete.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "cliente": {
+          "type": "string",
+          "description": "Nome do embarcador ou cliente.",
+          "maxLength": 160
+        },
+        "origem": {
+          "type": "string",
+          "description": "Cidade/UF de origem.",
+          "maxLength": 120
+        },
+        "destino": {
+          "type": "string",
+          "description": "Cidade/UF de destino.",
+          "maxLength": 120
+        },
+        "dataSaida": {
+          "type": "string",
+          "description": "Data de saída no formato YYYY-MM-DD (ou vazio).",
+          "maxLength": 20
+        },
+        "valorFrete": {
+          "type": "number",
+          "description": "Valor bruto do frete em BRL."
+        },
+        "valorRepasse": {
+          "type": "number",
+          "description": "Valor de repasse ao proprietário/motorista em BRL."
+        },
+        "proprietarioId": {
+          "type": "string",
+          "description": "ID do proprietário vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "motoristaId": {
+          "type": "string",
+          "description": "ID do motorista vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "veiculoId": {
+          "type": "string",
+          "description": "ID do veículo vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "status": {
+          "type": "string",
+          "description": "Andamento operacional do frete.",
+          "enum": ["agendado", "em_transito", "entregue", "faturado", "cancelado"],
+          "maxLength": 24
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações da viagem.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "cliente", "origem", "destino", "dataSaida", "valorFrete", "valorRepasse", "proprietarioId", "motoristaId", "veiculoId", "status", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/proprietarios/{proprietarioId}": {
+      "schema": { "$ref": "#/entities/Proprietario" },
+      "description": "Coleção de proprietários de veículos da transportadora."
+    },
+    "/motoristas/{motoristaId}": {
+      "schema": { "$ref": "#/entities/Motorista" },
+      "description": "Coleção de motoristas com dados da CNH e situação cadastral."
+    },
+    "/veiculos/{veiculoId}": {
+      "schema": { "$ref": "#/entities/Veiculo" },
+      "description": "Coleção de veículos da frota com CRLV, RENAVAM e vínculo ao proprietário."
+    },
+    "/documentos/{documentoId}": {
+      "schema": { "$ref": "#/entities/Documento" },
+      "description": "Coleção de metadados e validades dos documentos enviados."
+    },
+    "/financeiro/{lancamentoId}": {
+      "schema": { "$ref": "#/entities/LancamentoFinanceiro" },
+      "description": "Coleção de lançamentos financeiros da transportadora."
+    },
+    "/categorias_financeiras/{categoriaId}": {
+      "schema": { "$ref": "#/entities/CategoriaFinanceira" },
+      "description": "Coleção de categorias financeiras personalizadas."
+    },
+    "/fretes/{freteId}": {
+      "schema": { "$ref": "#/entities/Frete" },
+      "description": "Coleção de fretes e rotas operacionais da transportadora."
+    }
+  }
+}

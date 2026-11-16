@@ -1,0 +1,6 @@
+{
+  "name": "El Nathan Transportes — Gestão Documental",
+  "description": "Sistema de gestão documental e cadastro automatizado de motoristas, proprietários e veículos para a El Nathan Transportes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

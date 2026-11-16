@@ -1,0 +1,509 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        request.auth.token.email == 'joaomacedogondim22@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isOwner(ownerUid) {
+      return isSignedIn() && request.auth.uid == ownerUid;
+    }
+
+    function isValidSituacao(val) {
+      return val is string && val.size() <= 32 && val in ['aprovado', 'pendente', 'documentacao_vencida', 'em_analise'];
+    }
+
+    function isValidOptionalId(val) {
+      return val is string && val.size() <= 128 && (val == '' || val.matches('^[a-zA-Z0-9_\\-]+$'));
+    }
+
+    function isValidStringList(arr, maxLen) {
+      return arr is list && arr.size() <= maxLen && (arr.size() == 0 || (arr[0] is string && arr[0].size() <= 60));
+    }
+
+    function ownsProprietario(proprietarioId, expectedOwnerUid) {
+      return proprietarioId == '' || (
+        isValidId(proprietarioId) &&
+        exists(/databases/$(database)/documents/proprietarios/$(proprietarioId)) &&
+        (get(/databases/$(database)/documents/proprietarios/$(proprietarioId)).data.ownerUid == expectedOwnerUid || isAdmin())
+      );
+    }
+
+    function ownsMotorista(motoristaId, expectedOwnerUid) {
+      return motoristaId == '' || (
+        isValidId(motoristaId) &&
+        exists(/databases/$(database)/documents/motoristas/$(motoristaId)) &&
+        (get(/databases/$(database)/documents/motoristas/$(motoristaId)).data.ownerUid == expectedOwnerUid || isAdmin())
+      );
+    }
+
+    function ownsVeiculo(veiculoId, expectedOwnerUid) {
+      return veiculoId == '' || (
+        isValidId(veiculoId) &&
+        exists(/databases/$(database)/documents/veiculos/$(veiculoId)) &&
+        (get(/databases/$(database)/documents/veiculos/$(veiculoId)).data.ownerUid == expectedOwnerUid || isAdmin())
+      );
+    }
+
+    function ownsDocumentoTarget(entidadeTipo, entidadeId, expectedOwnerUid) {
+      return isValidId(entidadeId) && (
+        (entidadeTipo == 'motorista' &&
+          exists(/databases/$(database)/documents/motoristas/$(entidadeId)) &&
+          (get(/databases/$(database)/documents/motoristas/$(entidadeId)).data.ownerUid == expectedOwnerUid || isAdmin())) ||
+        (entidadeTipo == 'veiculo' &&
+          exists(/databases/$(database)/documents/veiculos/$(entidadeId)) &&
+          (get(/databases/$(database)/documents/veiculos/$(entidadeId)).data.ownerUid == expectedOwnerUid || isAdmin())) ||
+        (entidadeTipo == 'proprietario' &&
+          exists(/databases/$(database)/documents/proprietarios/$(entidadeId)) &&
+          (get(/databases/$(database)/documents/proprietarios/$(entidadeId)).data.ownerUid == expectedOwnerUid || isAdmin()))
+      );
+    }
+
+    // Entity Blueprint Validators
+    function isValidProprietario(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'nomeCompleto', 'cpfCnpj', 'contato', 'situacaoCadastral', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'nomeCompleto', 'cpfCnpj', 'contato', 'situacaoCadastral', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.nomeCompleto is string && data.nomeCompleto.size() >= 1 && data.nomeCompleto.size() <= 200
+      && data.cpfCnpj is string && data.cpfCnpj.size() <= 32
+      && data.contato is string && data.contato.size() <= 120
+      && isValidSituacao(data.situacaoCadastral)
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidMotorista(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
+        'telefone', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
+        'telefone', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.nomeCompleto is string && data.nomeCompleto.size() >= 1 && data.nomeCompleto.size() <= 200
+      && data.cpf is string && data.cpf.size() <= 20
+      && data.cnh is string && data.cnh.size() <= 30
+      && data.categoriaCnh is string && data.categoriaCnh.size() <= 10
+      && data.validadeCnh is string && data.validadeCnh.size() <= 20
+      && data.telefone is string && data.telefone.size() <= 40
+      && isValidOptionalId(data.proprietarioId)
+      && isValidSituacao(data.situacaoCadastral)
+      && isValidStringList(data.camposPendentes, 15)
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidVeiculo(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'placa', 'modelo', 'marca', 'ano', 'renavam',
+        'tipoVeiculo', 'proprietarioId', 'motoristaId', 'validadeCrlv',
+        'situacaoCadastral', 'camposPendentes', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'placa', 'modelo', 'marca', 'ano', 'renavam',
+        'tipoVeiculo', 'proprietarioId', 'motoristaId', 'validadeCrlv',
+        'situacaoCadastral', 'camposPendentes', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.placa is string && data.placa.size() >= 1 && data.placa.size() <= 16
+      && data.modelo is string && data.modelo.size() <= 120
+      && data.marca is string && data.marca.size() <= 80
+      && data.ano is string && data.ano.size() <= 12
+      && data.renavam is string && data.renavam.size() <= 30
+      && data.tipoVeiculo is string && data.tipoVeiculo.size() <= 20 && data.tipoVeiculo in ['', 'Van', 'HR', 'VUC', 'Médio']
+      && isValidOptionalId(data.proprietarioId)
+      && isValidOptionalId(data.motoristaId)
+      && data.validadeCrlv is string && data.validadeCrlv.size() <= 20
+      && isValidSituacao(data.situacaoCadastral)
+      && isValidStringList(data.camposPendentes, 15)
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidDocumento(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'tipoDocumento', 'nomeArquivo', 'mimeType', 'entidadeTipo',
+        'entidadeId', 'entidadeNome', 'dataValidade', 'statusDocumento',
+        'camposPendentes', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'tipoDocumento', 'nomeArquivo', 'mimeType', 'entidadeTipo',
+        'entidadeId', 'entidadeNome', 'dataValidade', 'statusDocumento',
+        'camposPendentes', 'resumoExtracao', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.tipoDocumento is string && data.tipoDocumento.size() <= 60
+      && data.tipoDocumento in ['CNH', 'CRLV', 'Comprovante de Endereço', 'ANTT / RNTRC', 'Contrato / Procuração', 'Outro']
+      && data.nomeArquivo is string && data.nomeArquivo.size() >= 1 && data.nomeArquivo.size() <= 200
+      && data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 100
+      && data.entidadeTipo is string && data.entidadeTipo.size() <= 20
+      && data.entidadeTipo in ['motorista', 'veiculo', 'proprietario']
+      && isValidId(data.entidadeId)
+      && data.entidadeNome is string && data.entidadeNome.size() <= 200
+      && data.dataValidade is string && data.dataValidade.size() <= 20
+      && data.statusDocumento is string && data.statusDocumento.size() <= 30
+      && data.statusDocumento in ['valido', 'vencido', 'a_vencer', 'pendente', 'em_analise']
+      && isValidStringList(data.camposPendentes, 15)
+      && (!('resumoExtracao' in data) || (data.resumoExtracao is string && data.resumoExtracao.size() <= 600))
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidLancamentoFinanceiro(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'descricao', 'tipo', 'categoria', 'valor',
+        'dataVencimento', 'dataPagamento', 'status',
+        'proprietarioId', 'motoristaId', 'veiculoId', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'descricao', 'tipo', 'categoria', 'valor',
+        'dataVencimento', 'dataPagamento', 'status',
+        'proprietarioId', 'motoristaId', 'veiculoId', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.descricao is string && data.descricao.size() >= 1 && data.descricao.size() <= 200
+      && data.tipo is string && data.tipo.size() <= 20 && data.tipo in ['receita', 'despesa', 'repasse']
+      && data.categoria is string && data.categoria.size() >= 1 && data.categoria.size() <= 80
+      && data.valor is number && data.valor >= 0 && data.valor <= 100000000
+      && data.dataVencimento is string && data.dataVencimento.size() <= 20
+      && data.dataPagamento is string && data.dataPagamento.size() <= 20
+      && data.status is string && data.status.size() <= 20 && data.status in ['pago', 'pendente', 'atrasado', 'cancelado']
+      && isValidOptionalId(data.proprietarioId)
+      && isValidOptionalId(data.motoristaId)
+      && isValidOptionalId(data.veiculoId)
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidCategoriaFinanceira(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'nome', 'tipoPadrao', 'descricao', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'nome', 'tipoPadrao', 'descricao', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 80
+      && data.tipoPadrao is string && data.tipoPadrao.size() <= 20 && data.tipoPadrao in ['receita', 'despesa', 'repasse']
+      && data.descricao is string && data.descricao.size() <= 200
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    function isValidFrete(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'cliente', 'origem', 'destino', 'dataSaida',
+        'valorFrete', 'valorRepasse', 'proprietarioId', 'motoristaId',
+        'veiculoId', 'status', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'cliente', 'origem', 'destino', 'dataSaida',
+        'valorFrete', 'valorRepasse', 'proprietarioId', 'motoristaId',
+        'veiculoId', 'status', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && data.cliente is string && data.cliente.size() >= 1 && data.cliente.size() <= 160
+      && data.origem is string && data.origem.size() <= 120
+      && data.destino is string && data.destino.size() <= 120
+      && data.dataSaida is string && data.dataSaida.size() <= 20
+      && data.valorFrete is number && data.valorFrete >= 0 && data.valorFrete <= 100000000
+      && data.valorRepasse is number && data.valorRepasse >= 0 && data.valorRepasse <= 100000000
+      && isValidOptionalId(data.proprietarioId)
+      && isValidOptionalId(data.motoristaId)
+      && isValidOptionalId(data.veiculoId)
+      && data.status is string && data.status.size() <= 24 && data.status in ['agendado', 'em_transito', 'entregue', 'faturado', 'cancelado']
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
+    // Admins Collection (Read-only for self/admin, writes blocked on client)
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && isEmailVerified() && (request.auth.uid == adminId || isAdmin());
+      allow list, write: if false;
+    }
+
+    // Proprietarios Collection
+    match /proprietarios/{proprietarioId} {
+      allow get: if isValidId(proprietarioId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(proprietarioId)
+        && isValidProprietario(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin());
+
+      allow update: if isSignedIn()
+        && isValidId(proprietarioId)
+        && isValidProprietario(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'nomeCompleto', 'cpfCnpj', 'contato', 'situacaoCadastral', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'observacoes', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(proprietarioId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Motoristas Collection
+    match /motoristas/{motoristaId} {
+      allow get: if isValidId(motoristaId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(motoristaId)
+        && isValidMotorista(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(motoristaId)
+        && isValidMotorista(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
+            'telefone', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['proprietarioId', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'observacoes', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(motoristaId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Veiculos Collection
+    match /veiculos/{veiculoId} {
+      allow get: if isValidId(veiculoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(veiculoId)
+        && isValidVeiculo(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, incoming().ownerUid)
+        && ownsMotorista(incoming().motoristaId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(veiculoId)
+        && isValidVeiculo(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, existing().ownerUid)
+        && ownsMotorista(incoming().motoristaId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'placa', 'modelo', 'marca', 'ano', 'renavam', 'tipoVeiculo',
+            'proprietarioId', 'motoristaId', 'validadeCrlv',
+            'situacaoCadastral', 'camposPendentes', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['proprietarioId', 'motoristaId', 'updatedAt']) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'observacoes', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(veiculoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Documentos Collection
+    match /documentos/{documentoId} {
+      allow get: if isValidId(documentoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(documentoId)
+        && isValidDocumento(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsDocumentoTarget(incoming().entidadeTipo, incoming().entidadeId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(documentoId)
+        && isValidDocumento(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsDocumentoTarget(incoming().entidadeTipo, incoming().entidadeId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'tipoDocumento', 'entidadeTipo', 'entidadeId', 'entidadeNome',
+            'dataValidade', 'statusDocumento', 'camposPendentes', 'resumoExtracao', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['dataValidade', 'statusDocumento', 'observacoes', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(documentoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Financeiro Collection
+    match /financeiro/{lancamentoId} {
+      allow get: if isValidId(lancamentoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(lancamentoId)
+        && isValidLancamentoFinanceiro(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, incoming().ownerUid)
+        && ownsMotorista(incoming().motoristaId, incoming().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(lancamentoId)
+        && isValidLancamentoFinanceiro(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, existing().ownerUid)
+        && ownsMotorista(incoming().motoristaId, existing().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'descricao', 'tipo', 'categoria', 'valor', 'dataVencimento', 'dataPagamento',
+            'status', 'proprietarioId', 'motoristaId', 'veiculoId', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'dataPagamento', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(lancamentoId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Categorias Financeiras Collection
+    match /categorias_financeiras/{categoriaId} {
+      allow get: if isValidId(categoriaId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(categoriaId)
+        && isValidCategoriaFinanceira(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin());
+
+      allow update: if isSignedIn()
+        && isValidId(categoriaId)
+        && isValidCategoriaFinanceira(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['nome', 'tipoPadrao', 'descricao', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(categoriaId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Fretes Operacionais Collection
+    match /fretes/{freteId} {
+      allow get: if isValidId(freteId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(freteId)
+        && isValidFrete(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, incoming().ownerUid)
+        && ownsMotorista(incoming().motoristaId, incoming().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(freteId)
+        && isValidFrete(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsProprietario(incoming().proprietarioId, existing().ownerUid)
+        && ownsMotorista(incoming().motoristaId, existing().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'cliente', 'origem', 'destino', 'dataSaida', 'valorFrete', 'valorRepasse',
+            'proprietarioId', 'motoristaId', 'veiculoId', 'status', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(freteId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+  }
+}
