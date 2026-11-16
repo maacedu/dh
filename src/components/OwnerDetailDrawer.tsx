@@ -163,10 +163,20 @@ export function OwnerDetailDrawer({
                 {linkedMotoristas.map((m) => (
                   <div
                     key={m.id}
-                    className="flex items-center justify-between gap-3 px-4 py-2.5 text-xs"
+                    className={`flex items-center justify-between gap-3 px-4 py-2.5 text-xs ${
+                      m.situacaoCadastral === 'aprovado'
+                        ? 'border-l-4 border-l-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/30'
+                        : ''
+                    }`}
                   >
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-zinc-100">
+                      <p
+                        className={`font-medium ${
+                          m.situacaoCadastral === 'aprovado'
+                            ? 'text-emerald-900 dark:text-emerald-200'
+                            : 'text-slate-900 dark:text-zinc-100'
+                        }`}
+                      >
                         {m.nomeCompleto}
                       </p>
                       <p className="mt-0.5 font-mono tabular-nums text-slate-500 dark:text-zinc-400">

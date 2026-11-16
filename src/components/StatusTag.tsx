@@ -10,7 +10,7 @@ export function SituacaoIndicator({ situacao }: SituacaoIndicatorProps) {
   switch (situacao) {
     case 'aprovado':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded border border-emerald-300 dark:border-emerald-700/80 bg-emerald-100/90 dark:bg-emerald-950/80 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{SITUACAO_LABELS.aprovado}</span>
         </span>

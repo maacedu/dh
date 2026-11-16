@@ -8,6 +8,7 @@ interface EditableCellProps {
   mono?: boolean;
   displayValue?: string;
   requiredPending?: boolean;
+  tone?: 'default' | 'emerald';
   onSave: (nextValue: string) => Promise<void> | void;
   onError?: (err: unknown) => void;
 }
@@ -19,6 +20,7 @@ export function EditableCell({
   mono = false,
   displayValue,
   requiredPending = true,
+  tone = 'default',
   onSave,
   onError,
 }: EditableCellProps) {
@@ -82,15 +84,18 @@ export function EditableCell({
 
   const isEmpty = !value.trim();
   const shown = displayValue ?? (isEmpty ? placeholder : value);
+  const isEmerald = tone === 'emerald';
 
   return (
     <button
       type="button"
       onClick={() => setEditing(true)}
       title="Clique para editar manualmente"
-      className={`group flex w-full items-center justify-between gap-1.5 rounded px-1.5 py-1 text-left text-xs transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
-        saving ? 'opacity-60' : ''
-      }`}
+      className={`group flex w-full items-center justify-between gap-1.5 rounded px-1.5 py-1 text-left text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
+        isEmerald
+          ? 'hover:bg-emerald-100/70 dark:hover:bg-emerald-900/40'
+          : 'hover:bg-slate-100 dark:hover:bg-zinc-800/80'
+      } ${saving ? 'opacity-60' : ''}`}
     >
       <span
         className={`truncate ${mono ? 'font-mono tabular-nums' : ''} ${
@@ -98,12 +103,20 @@ export function EditableCell({
             ? 'font-medium text-amber-700 dark:text-amber-400'
             : isEmpty
               ? 'text-slate-400 dark:text-zinc-500'
-              : 'text-slate-800 dark:text-zinc-200'
+              : isEmerald
+                ? 'font-medium text-emerald-800 dark:text-emerald-300'
+                : 'text-slate-800 dark:text-zinc-200'
         }`}
       >
         {shown}
       </span>
-      <Pencil className="h-3 w-3 shrink-0 text-slate-400 dark:text-zinc-500 opacity-45 transition-opacity group-hover:opacity-100" />
+      <Pencil
+        className={`h-3 w-3 shrink-0 opacity-45 transition-opacity group-hover:opacity-100 ${
+          isEmerald
+            ? 'text-emerald-600 dark:text-emerald-400'
+            : 'text-slate-400 dark:text-zinc-500'
+        }`}
+      />
     </button>
   );
 }

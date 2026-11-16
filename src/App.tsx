@@ -1301,7 +1301,9 @@ export default function App() {
                       onClick={() => setSituacaoFilter(opt.value)}
                       className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                         situacaoFilter === opt.value
-                          ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
+                          ? opt.value === 'aprovado'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
                           : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
                       }`}
                     >
@@ -1336,7 +1338,7 @@ export default function App() {
 
               <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
                 <div className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 px-4 py-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                  Planilha editável: clique em qualquer campo para editar diretamente. Campos em âmbar estão pendentes de preenchimento manual.
+                  Planilha editável: clique em qualquer campo para editar diretamente. Motoristas aprovados ficam destacados em verde; campos em âmbar estão pendentes.
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
@@ -1367,6 +1369,8 @@ export default function App() {
                         filteredMotoristas.map((m) => {
                           const cnhExpiryStatus = evaluateDateStatus(m.validadeCnh);
                           const missing = computeMotoristaPendingFields(m);
+                          const isApproved = m.situacaoCadastral === 'aprovado';
+                          const cellTone = isApproved ? 'emerald' : 'default';
                           const safeOwnerId =
                             m.proprietarioId && propMap.has(m.proprietarioId) ? m.proprietarioId : '';
                           const saveMotPatch = (
@@ -1387,11 +1391,16 @@ export default function App() {
                           return (
                             <tr
                               key={m.id}
-                              className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                              className={`transition-colors ${
+                                isApproved
+                                  ? 'border-l-4 border-l-emerald-500 bg-emerald-50/75 dark:bg-emerald-950/35 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/55'
+                                  : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
+                              }`}
                             >
                               <td className="px-2 py-1.5 min-w-[180px]">
                                 <EditableCell
                                   value={m.nomeCompleto}
+                                  tone={cellTone}
                                   onError={(err) =>
                                     showToast(
                                       'error',
@@ -1411,7 +1420,13 @@ export default function App() {
                                   </span>
                                 )}
                                 {m.observacoes && (
-                                  <span className="block max-w-[220px] truncate px-1.5 text-[10px] text-slate-400 dark:text-zinc-500">
+                                  <span
+                                    className={`block max-w-[220px] truncate px-1.5 text-[10px] ${
+                                      isApproved
+                                        ? 'text-emerald-700/80 dark:text-emerald-400/80'
+                                        : 'text-slate-400 dark:text-zinc-500'
+                                    }`}
+                                  >
                                     Obs.: {m.observacoes}
                                   </span>
                                 )}
@@ -1420,6 +1435,7 @@ export default function App() {
                                 <EditableCell
                                   value={m.cpf}
                                   mono
+                                  tone={cellTone}
                                   onSave={async (val) => {
                                     await saveMotPatch({ cpf: val }, 'CPF atualizado.');
                                   }}
@@ -1429,6 +1445,7 @@ export default function App() {
                                 <EditableCell
                                   value={m.cnh}
                                   mono
+                                  tone={cellTone}
                                   onSave={async (val) => {
                                     await saveMotPatch({ cnh: val }, 'CNH atualizada.');
                                   }}
@@ -1438,6 +1455,7 @@ export default function App() {
                                 <EditableCell
                                   value={m.categoriaCnh}
                                   mono
+                                  tone={cellTone}
                                   onSave={async (val) => {
                                     await saveMotPatch(
                                       { categoriaCnh: val },
@@ -1451,6 +1469,7 @@ export default function App() {
                                   value={m.validadeCnh}
                                   type="date"
                                   mono
+                                  tone={cellTone}
                                   displayValue={formatDatePtBr(m.validadeCnh)}
                                   onSave={async (val) => {
                                     const nextSit = suggestSituacaoMotorista({
@@ -1466,20 +1485,24 @@ export default function App() {
                                     );
                                   }}
                                 />
-                                {cnhExpiryStatus === 'vencido' && (
+                                {cnhExpiryStatus === 'vencido' ? (
                                   <span className="block px-1.5 text-[10px] font-medium text-red-700 dark:text-red-400">
                                     CNH vencida
                                   </span>
-                                )}
-                                {cnhExpiryStatus === 'a_vencer' && (
+                                ) : cnhExpiryStatus === 'a_vencer' ? (
                                   <span className="block px-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                                     Vence em breve
                                   </span>
-                                )}
+                                ) : isApproved && cnhExpiryStatus === 'valido' ? (
+                                  <span className="block px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                                    CNH em dia
+                                  </span>
+                                ) : null}
                               </td>
                               <td className="px-2 py-1.5 min-w-[130px]">
                                 <EditableCell
                                   value={m.telefone}
+                                  tone={cellTone}
                                   onSave={async (val) => {
                                     await saveMotPatch({ telefone: val }, 'Telefone atualizado.');
                                   }}
@@ -1494,7 +1517,11 @@ export default function App() {
                                       'Vínculo com proprietário atualizado.'
                                     );
                                   }}
-                                  className={inlineSelectCls}
+                                  className={
+                                    isApproved
+                                      ? 'w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 focus:border-emerald-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none'
+                                      : inlineSelectCls
+                                  }
                                 >
                                   <option value="">Sem vínculo</option>
                                   {proprietarios.map((p) => (
@@ -1517,7 +1544,11 @@ export default function App() {
                                         `Status de ${m.nomeCompleto} atualizado para ${SITUACAO_LABELS[nextSit]}.`
                                       );
                                     }}
-                                    className={statusSelectCls}
+                                    className={
+                                      isApproved
+                                        ? 'rounded border border-emerald-400 dark:border-emerald-700/80 bg-emerald-100/80 dark:bg-emerald-950/70 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 focus:border-emerald-500 focus:outline-none'
+                                        : statusSelectCls
+                                    }
                                   >
                                     {(Object.keys(SITUACAO_LABELS) as SituacaoCadastral[]).map(
                                       (st) => (
@@ -1534,7 +1565,11 @@ export default function App() {
                                   <button
                                     type="button"
                                     onClick={() => setEditingEntity({ type: 'motorista', data: m })}
-                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    className={`inline-flex items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
+                                      isApproved
+                                        ? 'border-emerald-300 dark:border-emerald-700/80 bg-emerald-100/70 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-900/60'
+                                        : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                                    }`}
                                     title="Editar motorista e status"
                                   >
                                     <Pencil className="h-3 w-3" />
