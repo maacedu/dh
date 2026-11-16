@@ -284,16 +284,27 @@ export default function App() {
         body: JSON.stringify({ password: passwordInput }),
       });
 
-      const data = (await res.json()) as {
+      const rawText = await res.text();
+      let data: {
         ok?: boolean;
         sessionToken?: string;
         operatorEmail?: string;
         operatorPassword?: string;
         error?: string;
-      };
+      } = {};
+      try {
+        data = rawText ? (JSON.parse(rawText) as typeof data) : {};
+      } catch {
+        data = {};
+      }
 
       if (!res.ok || !data.sessionToken || !data.operatorEmail || !data.operatorPassword) {
-        setAuthError(data.error || 'Senha incorreta.');
+        setAuthError(
+          data.error ||
+            (res.status === 404
+              ? 'Serviço de autenticação (/api/auth/login) não encontrado no servidor.'
+              : 'Senha incorreta ou falha ao validar acesso.')
+        );
         setSigningIn(false);
         return;
       }

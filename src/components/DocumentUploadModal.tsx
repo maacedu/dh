@@ -160,7 +160,18 @@ export function DocumentUploadModal({
         }),
       });
 
-      const payload = (await res.json()) as { extracted?: ExtractionResponse; error?: string };
+      const rawResponse = await res.text();
+      let payload: { extracted?: ExtractionResponse; error?: string } = {};
+      try {
+        payload = rawResponse ? (JSON.parse(rawResponse) as typeof payload) : {};
+      } catch {
+        payload = {};
+      }
+      if (res.status === 413) {
+        throw new Error(
+          'Arquivo excedeu o limite de envio do servidor (aprox. 4,5 MB). Reduza o tamanho do PDF ou da imagem e tente novamente.'
+        );
+      }
       if (!res.ok || !payload.extracted) {
         throw new Error(payload.error || 'Não foi possível extrair os dados do documento.');
       }
