@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   Moon,
+  Pencil,
   Plus,
   Route,
   Search,
@@ -73,6 +74,8 @@ import { DocStatusIndicator, SituacaoIndicator } from './components/StatusTag';
 import { EditableCell } from './components/EditableCell';
 import { DocumentUploadModal } from './components/DocumentUploadModal';
 import { ManualEntryModal, type ManualModalMode } from './components/ManualEntryModal';
+import { EditEntityModal, type EditableEntity } from './components/EditEntityModal';
+import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
 import { OwnerDetailDrawer } from './components/OwnerDetailDrawer';
 import { FinanceiroSection } from './components/FinanceiroSection';
 import { FretesSection } from './components/FretesSection';
@@ -183,6 +186,14 @@ export default function App() {
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [manualModalMode, setManualModalMode] = useState<ManualModalMode | null>(null);
+  const [editingEntity, setEditingEntity] = useState<EditableEntity | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    type: 'motorista' | 'veiculo' | 'proprietario' | 'documento';
+    id: string;
+    title: string;
+    warning?: string;
+  } | null>(null);
+  const [deletingBusy, setDeletingBusy] = useState(false);
   const [selectedOwnerId, setSelectedOwnerId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -665,6 +676,107 @@ export default function App() {
       fretes
     );
     showToast('success', 'Planilha Excel exportada com os cadastros atualizados.');
+  }
+
+  async function safeAction(fn: () => Promise<void>, successMessage?: string) {
+    try {
+      await fn();
+      if (successMessage) {
+        showToast('success', successMessage);
+      }
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Erro ao atualizar registro.');
+    }
+  }
+
+  function requestDeleteMotorista(m: Motorista) {
+    const linkedVeiCount = veiculos.filter((v) => v.motoristaId === m.id).length;
+    setDeleteTarget({
+      type: 'motorista',
+      id: m.id,
+      title: `o motorista "${m.nomeCompleto}"`,
+      warning:
+        linkedVeiCount > 0
+          ? `Este motorista está vinculado como principal em ${linkedVeiCount} veículo(s). Eles serão desvinculados automaticamente.`
+          : undefined,
+    });
+  }
+
+  function requestDeleteVeiculo(v: Veiculo) {
+    setDeleteTarget({
+      type: 'veiculo',
+      id: v.id,
+      title: `o veículo "${v.placa}"`,
+    });
+  }
+
+  function requestDeleteProprietario(p: Proprietario) {
+    const linkedMotCount = motoristas.filter((m) => m.proprietarioId === p.id).length;
+    const linkedVeiCount = veiculos.filter((v) => v.proprietarioId === p.id).length;
+    const warningParts: string[] = [];
+    if (linkedMotCount > 0) warningParts.push(`${linkedMotCount} motorista(s)`);
+    if (linkedVeiCount > 0) warningParts.push(`${linkedVeiCount} veículo(s)`);
+    setDeleteTarget({
+      type: 'proprietario',
+      id: p.id,
+      title: `o proprietário "${p.nomeCompleto}"`,
+      warning:
+        warningParts.length > 0
+          ? `Este proprietário possui ${warningParts.join(' e ')} vinculados. Os vínculos serão removidos automaticamente.`
+          : undefined,
+    });
+  }
+
+  async function confirmDeleteAction() {
+    if (!deleteTarget) return;
+    setDeletingBusy(true);
+    try {
+      if (deleteTarget.type === 'motorista') {
+        const linkedVeiculos = veiculos.filter((v) => v.motoristaId === deleteTarget.id);
+        for (const v of linkedVeiculos) {
+          await updateVeiculo(v.id, v, {
+            motoristaId: '',
+            proprietarioId: v.proprietarioId && propMap.has(v.proprietarioId) ? v.proprietarioId : '',
+          });
+        }
+        await deleteMotorista(deleteTarget.id);
+        if (editingEntity?.type === 'motorista' && editingEntity.data.id === deleteTarget.id) {
+          setEditingEntity(null);
+        }
+        showToast('success', 'Cadastro de motorista excluído.');
+      } else if (deleteTarget.type === 'veiculo') {
+        await deleteVeiculo(deleteTarget.id);
+        if (editingEntity?.type === 'veiculo' && editingEntity.data.id === deleteTarget.id) {
+          setEditingEntity(null);
+        }
+        showToast('success', 'Cadastro de veículo excluído.');
+      } else if (deleteTarget.type === 'proprietario') {
+        const linkedMotoristas = motoristas.filter((m) => m.proprietarioId === deleteTarget.id);
+        for (const m of linkedMotoristas) {
+          await updateMotorista(m.id, m, { proprietarioId: '' });
+        }
+        const linkedVeiculos = veiculos.filter((v) => v.proprietarioId === deleteTarget.id);
+        for (const v of linkedVeiculos) {
+          await updateVeiculo(v.id, v, { proprietarioId: '' });
+        }
+        await deleteProprietario(deleteTarget.id);
+        if (selectedOwnerId === deleteTarget.id) {
+          setSelectedOwnerId(null);
+        }
+        if (editingEntity?.type === 'proprietario' && editingEntity.data.id === deleteTarget.id) {
+          setEditingEntity(null);
+        }
+        showToast('success', 'Cadastro de proprietário excluído.');
+      } else {
+        await deleteDocumento(deleteTarget.id);
+        showToast('success', 'Registro de documento excluído.');
+      }
+      setDeleteTarget(null);
+    } catch (err) {
+      showToast('error', err instanceof Error ? err.message : 'Erro ao excluir registro.');
+    } finally {
+      setDeletingBusy(false);
+    }
   }
 
   const selectFilterCls =
@@ -1255,6 +1367,23 @@ export default function App() {
                         filteredMotoristas.map((m) => {
                           const cnhExpiryStatus = evaluateDateStatus(m.validadeCnh);
                           const missing = computeMotoristaPendingFields(m);
+                          const safeOwnerId =
+                            m.proprietarioId && propMap.has(m.proprietarioId) ? m.proprietarioId : '';
+                          const saveMotPatch = (
+                            patch: Parameters<typeof updateMotorista>[2],
+                            msg: string
+                          ) =>
+                            safeAction(
+                              () =>
+                                updateMotorista(m.id, m, {
+                                  ...(patch.proprietarioId === undefined &&
+                                  m.proprietarioId !== safeOwnerId
+                                    ? { proprietarioId: '' }
+                                    : {}),
+                                  ...patch,
+                                }),
+                              msg
+                            );
                           return (
                             <tr
                               key={m.id}
@@ -1263,14 +1392,27 @@ export default function App() {
                               <td className="px-2 py-1.5 min-w-[180px]">
                                 <EditableCell
                                   value={m.nomeCompleto}
+                                  onError={(err) =>
+                                    showToast(
+                                      'error',
+                                      err instanceof Error ? err.message : 'Erro ao salvar nome.'
+                                    )
+                                  }
                                   onSave={async (val) => {
-                                    await updateMotorista(m.id, m, { nomeCompleto: val });
-                                    showToast('success', 'Nome do motorista atualizado.');
+                                    await saveMotPatch(
+                                      { nomeCompleto: val },
+                                      'Nome do motorista atualizado.'
+                                    );
                                   }}
                                 />
                                 {missing.length > 0 && (
                                   <span className="block px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
                                     Falta: {missing.join(', ')}
+                                  </span>
+                                )}
+                                {m.observacoes && (
+                                  <span className="block max-w-[220px] truncate px-1.5 text-[10px] text-slate-400 dark:text-zinc-500">
+                                    Obs.: {m.observacoes}
                                   </span>
                                 )}
                               </td>
@@ -1279,7 +1421,7 @@ export default function App() {
                                   value={m.cpf}
                                   mono
                                   onSave={async (val) => {
-                                    await updateMotorista(m.id, m, { cpf: val });
+                                    await saveMotPatch({ cpf: val }, 'CPF atualizado.');
                                   }}
                                 />
                               </td>
@@ -1288,7 +1430,7 @@ export default function App() {
                                   value={m.cnh}
                                   mono
                                   onSave={async (val) => {
-                                    await updateMotorista(m.id, m, { cnh: val });
+                                    await saveMotPatch({ cnh: val }, 'CNH atualizada.');
                                   }}
                                 />
                               </td>
@@ -1297,7 +1439,10 @@ export default function App() {
                                   value={m.categoriaCnh}
                                   mono
                                   onSave={async (val) => {
-                                    await updateMotorista(m.id, m, { categoriaCnh: val });
+                                    await saveMotPatch(
+                                      { categoriaCnh: val },
+                                      'Categoria da CNH atualizada.'
+                                    );
                                   }}
                                 />
                               </td>
@@ -1312,10 +1457,13 @@ export default function App() {
                                       ...m,
                                       validadeCnh: val,
                                     });
-                                    await updateMotorista(m.id, m, {
-                                      validadeCnh: val,
-                                      situacaoCadastral: nextSit,
-                                    });
+                                    await saveMotPatch(
+                                      {
+                                        validadeCnh: val,
+                                        situacaoCadastral: nextSit,
+                                      },
+                                      'Validade da CNH atualizada.'
+                                    );
                                   }}
                                 />
                                 {cnhExpiryStatus === 'vencido' && (
@@ -1333,17 +1481,18 @@ export default function App() {
                                 <EditableCell
                                   value={m.telefone}
                                   onSave={async (val) => {
-                                    await updateMotorista(m.id, m, { telefone: val });
+                                    await saveMotPatch({ telefone: val }, 'Telefone atualizado.');
                                   }}
                                 />
                               </td>
                               <td className="px-2 py-1.5 min-w-[160px]">
                                 <select
-                                  value={m.proprietarioId}
+                                  value={safeOwnerId}
                                   onChange={async (e) => {
-                                    await updateMotorista(m.id, m, {
-                                      proprietarioId: e.target.value,
-                                    });
+                                    await saveMotPatch(
+                                      { proprietarioId: e.target.value },
+                                      'Vínculo com proprietário atualizado.'
+                                    );
                                   }}
                                   className={inlineSelectCls}
                                 >
@@ -1360,10 +1509,13 @@ export default function App() {
                                   <SituacaoIndicator situacao={m.situacaoCadastral} />
                                   <select
                                     value={m.situacaoCadastral}
+                                    aria-label={`Situação cadastral de ${m.nomeCompleto}`}
                                     onChange={async (e) => {
-                                      await updateMotorista(m.id, m, {
-                                        situacaoCadastral: e.target.value as SituacaoCadastral,
-                                      });
+                                      const nextSit = e.target.value as SituacaoCadastral;
+                                      await saveMotPatch(
+                                        { situacaoCadastral: nextSit },
+                                        `Status de ${m.nomeCompleto} atualizado para ${SITUACAO_LABELS[nextSit]}.`
+                                      );
                                     }}
                                     className={statusSelectCls}
                                   >
@@ -1378,18 +1530,26 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="px-3 py-1.5 text-right">
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await deleteMotorista(m.id);
-                                    showToast('success', 'Cadastro de motorista excluído.');
-                                  }}
-                                  className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
-                                  title="Excluir motorista"
-                                  aria-label={`Excluir motorista ${m.nomeCompleto}`}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingEntity({ type: 'motorista', data: m })}
+                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    title="Editar motorista e status"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => requestDeleteMotorista(m)}
+                                    className="inline-flex items-center gap-1 rounded border border-transparent p-1.5 text-slate-400 dark:text-zinc-500 hover:border-red-200 dark:hover:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                    title="Excluir motorista"
+                                    aria-label={`Excluir motorista ${m.nomeCompleto}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1638,9 +1798,20 @@ export default function App() {
                                   <select
                                     value={v.situacaoCadastral}
                                     onChange={async (e) => {
-                                      await updateVeiculo(v.id, v, {
-                                        situacaoCadastral: e.target.value as SituacaoCadastral,
-                                      });
+                                      const nextSit = e.target.value as SituacaoCadastral;
+                                      await safeAction(
+                                        () =>
+                                          updateVeiculo(v.id, v, {
+                                            situacaoCadastral: nextSit,
+                                            ...(v.proprietarioId && !propMap.has(v.proprietarioId)
+                                              ? { proprietarioId: '' }
+                                              : {}),
+                                            ...(v.motoristaId && !motMap.has(v.motoristaId)
+                                              ? { motoristaId: '' }
+                                              : {}),
+                                          }),
+                                        `Status do veículo ${v.placa} atualizado.`
+                                      );
                                     }}
                                     className={statusSelectCls}
                                   >
@@ -1655,18 +1826,26 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="px-3 py-1.5 text-right">
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await deleteVeiculo(v.id);
-                                    showToast('success', 'Veículo removido.');
-                                  }}
-                                  className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
-                                  title="Excluir veículo"
-                                  aria-label={`Excluir veículo ${v.placa}`}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingEntity({ type: 'veiculo', data: v })}
+                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    title="Editar veículo"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                    Editar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => requestDeleteVeiculo(v)}
+                                    className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                    title="Excluir veículo"
+                                    aria-label={`Excluir veículo ${v.placa}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           );
@@ -1869,9 +2048,14 @@ export default function App() {
                                   <select
                                     value={p.situacaoCadastral}
                                     onChange={async (e) => {
-                                      await updateProprietario(p.id, {
-                                        situacaoCadastral: e.target.value as SituacaoCadastral,
-                                      });
+                                      const nextSit = e.target.value as SituacaoCadastral;
+                                      await safeAction(
+                                        () =>
+                                          updateProprietario(p.id, {
+                                            situacaoCadastral: nextSit,
+                                          }),
+                                        `Status de ${p.nomeCompleto} atualizado.`
+                                      );
                                     }}
                                     className={statusSelectCls}
                                   >
@@ -1886,20 +2070,28 @@ export default function App() {
                                 </div>
                               </td>
                               <td className="px-3 py-1.5 text-right">
-                                <div className="inline-flex items-center gap-2">
+                                <div className="inline-flex items-center gap-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setEditingEntity({ type: 'proprietario', data: p })
+                                    }
+                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    title="Editar proprietário"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                    Editar
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() => setSelectedOwnerId(p.id)}
                                     className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
                                   >
-                                    Gerenciar Vínculos
+                                    Vínculos
                                   </button>
                                   <button
                                     type="button"
-                                    onClick={async () => {
-                                      await deleteProprietario(p.id);
-                                      showToast('success', 'Proprietário removido.');
-                                    }}
+                                    onClick={() => requestDeleteProprietario(p)}
                                     className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
                                     title="Excluir proprietário"
                                     aria-label={`Excluir proprietário ${p.nomeCompleto}`}
@@ -2113,10 +2305,13 @@ export default function App() {
                               <td className="px-3 py-2 text-right">
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    await deleteDocumento(d.id);
-                                    showToast('success', 'Registro de documento removido.');
-                                  }}
+                                  onClick={() =>
+                                    setDeleteTarget({
+                                      type: 'documento',
+                                      id: d.id,
+                                      title: `o documento "${d.nomeArquivo}"`,
+                                    })
+                                  }
                                   className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
                                   title="Excluir documento"
                                   aria-label={`Excluir documento ${d.nomeArquivo}`}
@@ -2198,6 +2393,32 @@ export default function App() {
           veiculos={veiculos}
           documentos={documentos}
           onClose={() => setSelectedOwnerId(null)}
+        />
+      )}
+
+      {editingEntity && (
+        <EditEntityModal
+          entity={editingEntity}
+          proprietarios={proprietarios}
+          motoristas={motoristas}
+          onClose={() => setEditingEntity(null)}
+          onSaved={(msg) => showToast('success', msg)}
+          onRequestDelete={(target) => {
+            if (target.type === 'motorista') requestDeleteMotorista(target.data);
+            else if (target.type === 'veiculo') requestDeleteVeiculo(target.data);
+            else requestDeleteProprietario(target.data);
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteModal
+          title="Confirmar Exclusão"
+          targetName={deleteTarget.title}
+          warning={deleteTarget.warning}
+          busy={deletingBusy}
+          onCancel={() => setDeleteTarget(null)}
+          onConfirm={confirmDeleteAction}
         />
       )}
     </div>

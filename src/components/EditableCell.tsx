@@ -9,6 +9,7 @@ interface EditableCellProps {
   displayValue?: string;
   requiredPending?: boolean;
   onSave: (nextValue: string) => Promise<void> | void;
+  onError?: (err: unknown) => void;
 }
 
 export function EditableCell({
@@ -19,6 +20,7 @@ export function EditableCell({
   displayValue,
   requiredPending = true,
   onSave,
+  onError,
 }: EditableCellProps) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
@@ -45,6 +47,11 @@ export function EditableCell({
     setSaving(true);
     try {
       await onSave(trimmed);
+    } catch (err) {
+      setDraft(value);
+      if (onError) {
+        onError(err);
+      }
     } finally {
       setSaving(false);
     }
@@ -96,7 +103,7 @@ export function EditableCell({
       >
         {shown}
       </span>
-      <Pencil className="h-3 w-3 shrink-0 text-slate-400 dark:text-zinc-500 opacity-0 transition-opacity group-hover:opacity-100" />
+      <Pencil className="h-3 w-3 shrink-0 text-slate-400 dark:text-zinc-500 opacity-45 transition-opacity group-hover:opacity-100" />
     </button>
   );
 }
