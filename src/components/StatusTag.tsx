@@ -10,15 +10,15 @@ export function SituacaoIndicator({ situacao }: SituacaoIndicatorProps) {
   switch (situacao) {
     case 'aprovado':
       return (
-        <span className="inline-flex w-fit items-center gap-1.5 rounded border border-emerald-300 dark:border-emerald-700/80 bg-emerald-100/90 dark:bg-emerald-950/80 px-2 py-0.5 text-xs font-semibold text-emerald-800 dark:text-emerald-300 whitespace-nowrap">
+        <span className="inline-flex w-fit items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/12 px-2 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{SITUACAO_LABELS.aprovado}</span>
         </span>
       );
     case 'em_analise':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap">
-          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800 dark:text-white whitespace-nowrap">
+          <Clock className="h-3.5 w-3.5 text-slate-600 dark:text-white shrink-0" />
           <span>{SITUACAO_LABELS.em_analise}</span>
         </span>
       );
@@ -47,15 +47,15 @@ export function DocStatusIndicator({ status }: DocStatusIndicatorProps) {
   switch (status) {
     case 'valido':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{STATUS_DOC_LABELS.valido}</span>
         </span>
       );
     case 'a_vencer':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 whitespace-nowrap">
-          <Clock className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-800 dark:text-white whitespace-nowrap">
+          <Clock className="h-3.5 w-3.5 text-slate-600 dark:text-white shrink-0" />
           <span>{STATUS_DOC_LABELS.a_vencer}</span>
         </span>
       );

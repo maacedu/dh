@@ -115,7 +115,7 @@ service cloud.firestore {
       ])
       && data.keys().hasOnly([
         'ownerUid', 'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
-        'telefone', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'createdAt', 'updatedAt'
+        'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'createdAt', 'updatedAt'
       ])
       && isValidId(data.ownerUid)
       && (data.ownerUid == request.auth.uid || isAdmin())
@@ -125,6 +125,7 @@ service cloud.firestore {
       && data.categoriaCnh is string && data.categoriaCnh.size() <= 10
       && data.validadeCnh is string && data.validadeCnh.size() <= 20
       && data.telefone is string && data.telefone.size() <= 40
+      && (!('placa' in data) || (data.placa is string && data.placa.size() <= 16))
       && isValidOptionalId(data.proprietarioId)
       && isValidSituacao(data.situacaoCadastral)
       && isValidStringList(data.camposPendentes, 15)
@@ -326,7 +327,7 @@ service cloud.firestore {
           isAdmin() ||
           incoming().diff(existing()).affectedKeys().hasOnly([
             'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
-            'telefone', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'updatedAt'
+            'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'updatedAt'
           ]) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['proprietarioId', 'updatedAt']) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'observacoes', 'updatedAt'])

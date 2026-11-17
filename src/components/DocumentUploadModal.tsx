@@ -70,7 +70,7 @@ function normalizePlate(s: string): string {
 }
 
 const fieldInputCls =
-  'w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-amber-600 dark:placeholder:text-amber-400/80 focus:border-blue-500 focus:outline-none';
+  'w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-1.5 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-400 focus:border-blue-500 focus:outline-none';
 
 export function DocumentUploadModal({
   user,
@@ -104,6 +104,7 @@ export function DocumentUploadModal({
   const [motCategoria, setMotCategoria] = useState('');
   const [motValidade, setMotValidade] = useState('');
   const [motTelefone, setMotTelefone] = useState('');
+  const [motPlaca, setMotPlaca] = useState('');
 
   // Proprietario review fields
   const [includeProprietario, setIncludeProprietario] = useState(false);
@@ -214,6 +215,7 @@ export function DocumentUploadModal({
       setMotCategoria((ext.motorista?.categoriaCnh || '').toUpperCase());
       setMotValidade(ext.motorista?.validadeCnh || '');
       setMotTelefone(ext.motorista?.telefone || '');
+      setMotPlaca((ext.veiculo?.placa || '').toUpperCase());
 
       if (hasMot) {
         const cpfNorm = normalizeDigits(ext.motorista?.cpf || '');
@@ -358,6 +360,7 @@ export function DocumentUploadModal({
             categoriaCnh: motCategoria,
             validadeCnh: motValidade,
             telefone: motTelefone,
+            placa: motPlaca,
             proprietarioId: resolvedProprietarioId,
             situacaoCadastral: motSituacao,
             observacoes: '',
@@ -377,6 +380,7 @@ export function DocumentUploadModal({
               categoriaCnh: motCategoria.trim() || existingMot.categoriaCnh,
               validadeCnh: nextValidade,
               telefone: motTelefone.trim() || existingMot.telefone,
+              placa: motPlaca.trim().toUpperCase() || existingMot.placa || '',
               proprietarioId: nextPropId,
             };
             await updateMotorista(existingMot.id, existingMot, {
@@ -554,21 +558,21 @@ export function DocumentUploadModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-[2px]">
-      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+      <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-xl border border-slate-200/90 dark:border-white/[0.09] bg-white dark:bg-[#0F1520] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-zinc-100">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">
               Enviar Documento e Extrair Informações
             </h2>
-            <p className="mt-0.5 text-xs text-slate-500 dark:text-zinc-400">
+            <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
               PDF ou imagem (CNH, CRLV, Comprovantes, ANTT). Apenas dados visíveis no documento serão extraídos.
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-slate-400 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-700 dark:hover:text-zinc-100"
+            className="rounded-lg p-1.5 text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-white"
             aria-label="Fechar modal"
           >
             <X className="h-4 w-4" />
@@ -577,7 +581,7 @@ export function DocumentUploadModal({
 
         <div className="flex-1 space-y-5 overflow-y-auto p-6">
           {error && (
-            <div className="flex items-start gap-2 rounded border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
+            <div className="flex items-start gap-2 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -593,32 +597,34 @@ export function DocumentUploadModal({
                 }}
                 onDragLeave={() => setDragActive(false)}
                 onDrop={handleDrop}
-                className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed px-4 py-6 text-center transition-colors ${
+                className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
                   dragActive
-                    ? 'border-blue-600 bg-blue-50/70 dark:bg-blue-950/30'
-                    : 'border-slate-300 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-950/60 hover:border-slate-400 dark:hover:border-zinc-600'
+                    ? 'border-blue-500 bg-blue-500/10'
+                    : 'border-slate-300 dark:border-white/[0.12] bg-slate-50/70 dark:bg-[#0B0F17] hover:border-blue-400/60 dark:hover:border-white/[0.22]'
                 }`}
               >
                 {extracting ? (
                   <div className="flex flex-col items-center gap-2 py-2">
                     <Loader2 className="h-6 w-6 animate-spin text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm font-medium text-slate-800 dark:text-zinc-100">
+                    <p className="text-sm font-medium text-slate-800 dark:text-white">
                       Lendo documento e extraindo informações...
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">{selectedFile?.name}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">{selectedFile?.name}</p>
                   </div>
                 ) : (
                   <>
-                    <Upload className="mb-2 h-6 w-6 text-slate-500 dark:text-zinc-400" />
-                    <p className="text-sm font-medium text-slate-800 dark:text-zinc-100">
+                    <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <Upload className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-medium text-slate-800 dark:text-white">
                       {selectedFile
                         ? `Arquivo selecionado: ${selectedFile.name}`
                         : 'Arraste um PDF ou imagem aqui'}
                     </p>
-                    <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       Formatos aceitos: PDF, PNG, JPG, WEBP (máx. 14 MB)
                     </p>
-                    <label className="mt-3 cursor-pointer rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3.5 py-1.5 text-xs font-medium text-slate-800 dark:text-zinc-200 shadow-xs hover:bg-slate-50 dark:hover:bg-zinc-800">
+                    <label className="mt-3 cursor-pointer rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-4 py-1.5 text-xs font-medium text-slate-800 dark:text-white shadow-xs hover:bg-slate-50 dark:hover:bg-white/[0.06]">
                       Selecionar Arquivo
                       <input
                         type="file"
@@ -632,15 +638,15 @@ export function DocumentUploadModal({
               </div>
             </div>
 
-            <div className="flex flex-col justify-between rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/70 p-4">
+            <div className="flex flex-col justify-between rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/80 dark:bg-[#0B0F17] p-4">
               <div>
-                <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                <label className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300">
                   Tipo de Documento (Opcional)
                 </label>
                 <select
                   value={hintTipo}
                   onChange={(e) => setHintTipo(e.target.value)}
-                  className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-2 text-xs text-slate-900 dark:text-zinc-100 focus:border-blue-600 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-2.5 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-blue-600 focus:outline-none"
                 >
                   <option value="">Detectar automaticamente</option>
                   <option value="CNH">CNH (Motorista)</option>
@@ -651,7 +657,7 @@ export function DocumentUploadModal({
                   <option value="Outro">Outro Comprovante</option>
                 </select>
               </div>
-              <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-zinc-400">
+              <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
                 Campos não identificados no documento permanecem em branco como pendentes para preenchimento manual.
               </p>
             </div>
@@ -659,21 +665,21 @@ export function DocumentUploadModal({
 
           {/* Extraction Review */}
           {reviewReady && (
-            <div className="space-y-5 border-t border-slate-200 dark:border-zinc-800 pt-5">
+            <div className="space-y-5 border-t border-slate-200/80 dark:border-white/[0.07] pt-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                     Conferência dos Dados Extraídos
                   </h3>
                 </div>
                 <div className="flex items-center gap-3 text-xs">
-                  <label className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
+                  <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                     Documento:
                     <select
                       value={tipoDoc}
                       onChange={(e) => setTipoDoc(e.target.value as TipoDocumento)}
-                      className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 py-1 text-xs font-medium text-slate-900 dark:text-zinc-100"
+                      className="rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 text-xs font-medium text-slate-900 dark:text-slate-100"
                     >
                       <option value="CNH">CNH</option>
                       <option value="CRLV">CRLV</option>
@@ -683,23 +689,23 @@ export function DocumentUploadModal({
                       <option value="Outro">Outro</option>
                     </select>
                   </label>
-                  <label className="flex items-center gap-1.5 text-slate-600 dark:text-zinc-300">
+                  <label className="flex items-center gap-1.5 text-slate-600 dark:text-slate-300">
                     Validade Doc.:
                     <input
                       type="date"
                       value={dataValidadeDoc}
                       onChange={(e) => setDataValidadeDoc(e.target.value)}
-                      className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 py-1 font-mono text-xs text-slate-900 dark:text-zinc-100"
+                      className="rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 font-mono text-xs text-slate-900 dark:text-slate-100"
                     />
                   </label>
                 </div>
               </div>
 
               {resumoExtracao && (
-                <div className="flex items-start gap-2 rounded-md border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/70 px-3.5 py-2.5 text-xs text-slate-700 dark:text-zinc-300">
-                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-zinc-400" />
+                <div className="flex items-start gap-2 rounded-lg border border-slate-200/90 dark:border-white/[0.08] bg-slate-50 dark:bg-[#0B0F17] px-3.5 py-2.5 text-xs text-slate-700 dark:text-slate-300">
+                  <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
                   <div>
-                    <span className="font-medium text-slate-900 dark:text-zinc-100">
+                    <span className="font-medium text-slate-900 dark:text-white">
                       Leitura do documento:{' '}
                     </span>
                     {resumoExtracao}
@@ -708,41 +714,41 @@ export function DocumentUploadModal({
               )}
 
               {camposNaoIdentificados.length > 0 && (
-                <div className="rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/40 px-3.5 py-2.5 text-xs text-amber-900 dark:text-amber-300">
+                <div className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-slate-100 dark:bg-[#0B0F17] px-3.5 py-2.5 text-xs text-slate-800 dark:text-white">
                   <span className="font-semibold">Campos pendentes (não presentes no documento): </span>
                   {camposNaoIdentificados.join(' · ')}
                 </div>
               )}
 
               {/* Entity Toggle Strip */}
-              <div className="flex flex-wrap items-center gap-4 border-b border-slate-200 dark:border-zinc-800 pb-3 text-xs">
-                <span className="font-medium text-slate-700 dark:text-zinc-300">
+              <div className="flex flex-wrap items-center gap-4 border-b border-slate-200/80 dark:border-white/[0.07] pb-3 text-xs">
+                <span className="font-medium text-slate-700 dark:text-slate-300">
                   Cadastros vinculados neste documento:
                 </span>
-                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-zinc-200">
+                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={includeMotorista}
                     onChange={(e) => setIncludeMotorista(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-zinc-700 text-blue-600"
+                    className="rounded border-slate-300 dark:border-white/[0.2] text-blue-600"
                   />
                   Motorista
                 </label>
-                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-zinc-200">
+                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={includeProprietario}
                     onChange={(e) => setIncludeProprietario(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-zinc-700 text-blue-600"
+                    className="rounded border-slate-300 dark:border-white/[0.2] text-blue-600"
                   />
                   Proprietário do Veículo
                 </label>
-                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-zinc-200">
+                <label className="inline-flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200">
                   <input
                     type="checkbox"
                     checked={includeVeiculo}
                     onChange={(e) => setIncludeVeiculo(e.target.checked)}
-                    className="rounded border-slate-300 dark:border-zinc-700 text-blue-600"
+                    className="rounded border-slate-300 dark:border-white/[0.2] text-blue-600"
                   />
                   Veículo
                 </label>
@@ -750,9 +756,9 @@ export function DocumentUploadModal({
 
               {/* Proprietario Section */}
               {(includeProprietario || includeMotorista || includeVeiculo) && (
-                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40 p-4">
+                <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                    <h4 className="text-xs font-semibold text-slate-700 dark:text-white">
                       Proprietário do Veículo (Vínculo)
                     </h4>
                     <select
@@ -762,7 +768,7 @@ export function DocumentUploadModal({
                         setTargetProprietarioId(val);
                         if (val === '__new__') setIncludeProprietario(true);
                       }}
-                      className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs text-slate-800 dark:text-zinc-200"
+                      className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200"
                     >
                       <option value="__none__">Sem vínculo no momento</option>
                       <option value="__new__">+ Criar novo proprietário</option>
@@ -778,7 +784,7 @@ export function DocumentUploadModal({
                     targetProprietarioId !== '__none__' && (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                         <div>
-                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                             Nome Completo / Razão Social
                           </label>
                           <input
@@ -790,7 +796,7 @@ export function DocumentUploadModal({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                             CPF / CNPJ
                           </label>
                           <input
@@ -802,7 +808,7 @@ export function DocumentUploadModal({
                           />
                         </div>
                         <div>
-                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                          <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                             Contato
                           </label>
                           <input
@@ -817,8 +823,8 @@ export function DocumentUploadModal({
                     )}
 
                   {!includeMotorista && motoristas.length > 0 && (
-                    <div className="mt-3 border-t border-slate-200 dark:border-zinc-800 pt-3">
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                    <div className="mt-3 border-t border-slate-200/80 dark:border-white/[0.07] pt-3">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Motorista Cadastrado Vinculado (Opcional)
                       </label>
                       <select
@@ -840,15 +846,15 @@ export function DocumentUploadModal({
 
               {/* Motorista Section */}
               {includeMotorista && (
-                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40 p-4">
+                <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                    <h4 className="text-xs font-semibold text-slate-700 dark:text-white">
                       Dados do Motorista
                     </h4>
                     <select
                       value={targetMotoristaId}
                       onChange={(e) => setTargetMotoristaId(e.target.value)}
-                      className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs text-slate-800 dark:text-zinc-200"
+                      className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200"
                     >
                       <option value="__new__">+ Criar novo motorista</option>
                       {motoristas.map((m) => (
@@ -861,7 +867,7 @@ export function DocumentUploadModal({
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div className="sm:col-span-2">
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Nome Completo
                       </label>
                       <input
@@ -873,7 +879,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         CPF
                       </label>
                       <input
@@ -885,7 +891,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         CNH
                       </label>
                       <input
@@ -897,7 +903,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Categoria
                       </label>
                       <input
@@ -909,7 +915,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Validade da CNH
                       </label>
                       <input
@@ -919,8 +925,8 @@ export function DocumentUploadModal({
                         className={`${fieldInputCls} font-mono`}
                       />
                     </div>
-                    <div className="sm:col-span-3">
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                    <div className="sm:col-span-2">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Telefone
                       </label>
                       <input
@@ -931,21 +937,33 @@ export function DocumentUploadModal({
                         className={fieldInputCls}
                       />
                     </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
+                        Placa do Veículo
+                      </label>
+                      <input
+                        type="text"
+                        value={motPlaca}
+                        onChange={(e) => setMotPlaca(e.target.value.toUpperCase())}
+                        placeholder="Opcional"
+                        className={`${fieldInputCls} font-mono uppercase`}
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Veiculo Section */}
               {includeVeiculo && (
-                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-950/40 p-4">
+                <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] p-4">
                   <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="text-xs font-semibold text-slate-700 dark:text-zinc-200">
+                    <h4 className="text-xs font-semibold text-slate-700 dark:text-white">
                       Dados do Veículo
                     </h4>
                     <select
                       value={targetVeiculoId}
                       onChange={(e) => setTargetVeiculoId(e.target.value)}
-                      className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1 text-xs text-slate-800 dark:text-zinc-200"
+                      className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-2.5 py-1 text-xs text-slate-800 dark:text-slate-200"
                     >
                       <option value="__new__">+ Criar novo veículo</option>
                       {veiculos.map((v) => (
@@ -958,7 +976,7 @@ export function DocumentUploadModal({
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Placa
                       </label>
                       <input
@@ -970,7 +988,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Marca
                       </label>
                       <input
@@ -982,7 +1000,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Modelo
                       </label>
                       <input
@@ -994,7 +1012,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Ano
                       </label>
                       <input
@@ -1006,7 +1024,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         RENAVAM
                       </label>
                       <input
@@ -1018,7 +1036,7 @@ export function DocumentUploadModal({
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Tipo de Veículo
                       </label>
                       <select
@@ -1034,7 +1052,7 @@ export function DocumentUploadModal({
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-zinc-400">
+                      <label className="mb-1 block text-[11px] font-medium text-slate-600 dark:text-slate-400">
                         Validade CRLV
                       </label>
                       <input
@@ -1051,15 +1069,15 @@ export function DocumentUploadModal({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-slate-200 dark:border-zinc-800 px-6 py-4">
-          <span className="text-xs text-slate-500 dark:text-zinc-400">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-white/[0.07] px-6 py-4">
+          <span className="text-xs text-slate-500 dark:text-slate-400">
             Os dados pessoais e documentos são salvos com acesso restrito ao usuário autenticado.
           </span>
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+              className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] whitespace-nowrap"
             >
               Cancelar
             </button>
@@ -1067,7 +1085,7 @@ export function DocumentUploadModal({
               type="button"
               disabled={!reviewReady || saving}
               onClick={handleSaveExtraction}
-              className="rounded-md bg-blue-700 dark:bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500 disabled:opacity-45 whitespace-nowrap"
+              className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white shadow-xs hover:bg-blue-500 disabled:opacity-45 whitespace-nowrap"
             >
               {saving ? 'Salvando...' : 'Confirmar e Salvar Cadastro'}
             </button>

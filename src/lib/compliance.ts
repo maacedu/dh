@@ -315,20 +315,24 @@ export function exportFleetToExcel(
   const motMap = new Map(motoristas.map((m) => [m.id, m]));
   const veiMap = new Map(veiculos.map((v) => [v.id, v]));
 
-  const motoristasRows = motoristas.map((m) => ({
-    'Nome Completo': m.nomeCompleto || 'Pendente',
-    CPF: m.cpf || 'Pendente',
-    CNH: m.cnh || 'Pendente',
-    Categoria: m.categoriaCnh || 'Pendente',
-    'Validade CNH': formatDatePtBr(m.validadeCnh),
-    Telefone: m.telefone || 'Pendente',
-    'Proprietário Vinculado': m.proprietarioId
-      ? propMap.get(m.proprietarioId)?.nomeCompleto || m.proprietarioId
-      : 'Sem vínculo',
-    'Situação Cadastral': SITUACAO_LABELS[m.situacaoCadastral] || m.situacaoCadastral,
-    'Campos Pendentes': computeMotoristaPendingFields(m).join(', ') || 'Nenhum',
-    Observações: m.observacoes || '',
-  }));
+  const motoristasRows = motoristas.map((m) => {
+    const linkedVeiPlaca = veiculos.find((v) => v.motoristaId === m.id)?.placa || '';
+    return {
+      'Nome Completo': m.nomeCompleto || 'Pendente',
+      CPF: m.cpf || 'Pendente',
+      CNH: m.cnh || 'Pendente',
+      Categoria: m.categoriaCnh || 'Pendente',
+      'Validade CNH': formatDatePtBr(m.validadeCnh),
+      Telefone: m.telefone || 'Pendente',
+      Placa: m.placa || linkedVeiPlaca || '-',
+      'Proprietário Vinculado': m.proprietarioId
+        ? propMap.get(m.proprietarioId)?.nomeCompleto || m.proprietarioId
+        : 'Sem vínculo',
+      'Situação Cadastral': SITUACAO_LABELS[m.situacaoCadastral] || m.situacaoCadastral,
+      'Campos Pendentes': computeMotoristaPendingFields(m).join(', ') || 'Nenhum',
+      Observações: m.observacoes || '',
+    };
+  });
 
   const veiculosRows = veiculos.map((v) => ({
     Placa: v.placa || 'Pendente',

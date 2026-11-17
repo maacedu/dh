@@ -44,6 +44,7 @@ export interface Motorista {
   categoriaCnh: string;
   validadeCnh: string;
   telefone: string;
+  placa?: string;
   proprietarioId: string;
   situacaoCadastral: SituacaoCadastral;
   camposPendentes: string[];

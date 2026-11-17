@@ -112,20 +112,27 @@ const TIPO_VEICULO_OPTIONS: Array<{ value: 'todos' | TipoVeiculo; label: string 
 function BrandEmblem() {
   return (
     <svg
-      viewBox="0 0 32 32"
-      className="h-8 w-8 shrink-0"
+      viewBox="0 0 36 36"
+      className="h-9 w-9 shrink-0"
       fill="none"
       aria-hidden="true"
     >
-      <rect width="32" height="32" rx="7" fill="#1D4ED8" />
+      <defs>
+        <linearGradient id="elnathanBrandGrad" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#2563EB" />
+          <stop offset="100%" stopColor="#1D4ED8" />
+        </linearGradient>
+      </defs>
+      <rect width="36" height="36" rx="9" fill="url(#elnathanBrandGrad)" />
+      <rect x="0.5" y="0.5" width="35" height="35" rx="8.5" stroke="white" strokeOpacity="0.16" />
       <path
-        d="M7 10.5h11.5v9H7v-9Zm11.5 3h4.2l2.3 2.8v3.2h-6.5v-6Z"
+        d="M8 12h12.5v10H8V12Zm12.5 3.5h4.7L28 19v3h-7.5v-6.5Z"
         stroke="#FFFFFF"
-        strokeWidth="1.75"
+        strokeWidth="1.8"
         strokeLinejoin="round"
       />
-      <circle cx="11" cy="21.5" r="2" fill="#FFFFFF" />
-      <circle cx="22" cy="21.5" r="2" fill="#FFFFFF" />
+      <circle cx="12.5" cy="24.2" r="2.1" fill="#FFFFFF" />
+      <circle cx="24.5" cy="24.2" r="2.1" fill="#FFFFFF" />
     </svg>
   );
 }
@@ -382,6 +389,16 @@ export default function App() {
 
   const motMap = useMemo(() => new Map(motoristas.map((m) => [m.id, m])), [motoristas]);
 
+  const motPlateByVehicleMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const v of veiculos) {
+      if (v.motoristaId && v.placa && !map.has(v.motoristaId)) {
+        map.set(v.motoristaId, v.placa);
+      }
+    }
+    return map;
+  }, [veiculos]);
+
   const pendencias = useMemo(
     () => generatePendencias(motoristas, veiculos, proprietarios, documentos),
     [motoristas, veiculos, proprietarios, documentos]
@@ -397,15 +414,25 @@ export default function App() {
       if (!normalizedSearch) return true;
       const propName = propMap.get(m.proprietarioId)?.nomeCompleto.toLowerCase() || '';
       const cpfDigits = m.cpf.replace(/\D/g, '');
+      const plateText = (m.placa || motPlateByVehicleMap.get(m.id) || '').toLowerCase();
       return (
         m.nomeCompleto.toLowerCase().includes(normalizedSearch) ||
         m.cpf.toLowerCase().includes(normalizedSearch) ||
         (normalizedSearchDigits.length >= 3 && cpfDigits.includes(normalizedSearchDigits)) ||
         m.cnh.toLowerCase().includes(normalizedSearch) ||
+        plateText.includes(normalizedSearch) ||
         propName.includes(normalizedSearch)
       );
     });
-  }, [motoristas, situacaoFilter, proprietarioFilter, normalizedSearch, normalizedSearchDigits, propMap]);
+  }, [
+    motoristas,
+    situacaoFilter,
+    proprietarioFilter,
+    normalizedSearch,
+    normalizedSearchDigits,
+    propMap,
+    motPlateByVehicleMap,
+  ]);
 
   const filteredVeiculos = useMemo(() => {
     return veiculos.filter((v) => {
@@ -505,8 +532,8 @@ export default function App() {
 
   if (!authReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-zinc-950">
-        <div className="text-sm font-medium text-slate-600 dark:text-zinc-400">
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F6FA] dark:bg-[#07090E]">
+        <div className="text-sm font-medium text-slate-600 dark:text-slate-400">
           Inicializando El Nathan Transportes...
         </div>
       </div>
@@ -515,16 +542,21 @@ export default function App() {
 
   if (!user || !sessionUnlocked) {
     return (
-      <div className="relative flex min-h-screen flex-col justify-center bg-slate-100 dark:bg-zinc-950 px-4 py-12">
-        <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+      <div className="relative flex min-h-screen flex-col justify-center overflow-hidden bg-[#F4F6FA] dark:bg-[#07090E] px-4 py-12">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(37,99,235,0.08),transparent_58%)] dark:bg-[radial-gradient(ellipse_at_top,rgba(37,99,235,0.18),transparent_58%)]"
+        />
+
+        <div className="absolute right-4 top-4 z-10 sm:right-6 sm:top-6">
           <button
             type="button"
             onClick={toggleTheme}
-            className="inline-flex items-center gap-2 rounded-md border border-slate-300 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-zinc-200 transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-300/90 dark:border-white/[0.1] bg-white/90 dark:bg-[#0F1520]/90 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 shadow-xs backdrop-blur-xs transition-colors hover:bg-white dark:hover:bg-[#161E2E] whitespace-nowrap"
           >
             {theme === 'dark' ? (
               <>
-                <Sun className="h-3.5 w-3.5 text-amber-400" />
+                <Sun className="h-3.5 w-3.5 text-slate-700 dark:text-white" />
                 <span>Tema Claro</span>
               </>
             ) : (
@@ -536,22 +568,22 @@ export default function App() {
           </button>
         </div>
 
-        <div className="mx-auto w-full max-w-md rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 shadow-xl dark:shadow-black/50">
+        <div className="relative z-10 mx-auto w-full max-w-md rounded-2xl border border-slate-200/90 dark:border-white/[0.09] bg-white dark:bg-[#0F1520] p-8 shadow-2xl dark:shadow-black/70">
           <div className="flex items-center gap-3.5">
             <BrandEmblem />
             <div>
-              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-zinc-50">
+              <h1 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
                 El Nathan Transportes
               </h1>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Gestão Documental de Frota e Motoristas
               </p>
             </div>
           </div>
 
-          <div className="mt-6 space-y-2 border-t border-slate-200 dark:border-zinc-800 pt-6">
-            <div className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-600 dark:text-zinc-400">
-              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-700 dark:text-blue-400" />
+          <div className="mt-6 space-y-2 border-t border-slate-200/80 dark:border-white/[0.07] pt-6">
+            <div className="flex items-start gap-2.5 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
               <p>
                 Área restrita da transportadora. Informe a senha de acesso para consultar e
                 gerenciar cadastros e documentos.
@@ -560,7 +592,7 @@ export default function App() {
           </div>
 
           {authError && (
-            <div className="mt-4 space-y-2 rounded-md border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
+            <div className="mt-4 space-y-2 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
               <p>{authError}</p>
               {needsProviderSetup && (
                 <p className="text-[11px] leading-relaxed text-red-800 dark:text-red-200">
@@ -583,12 +615,12 @@ export default function App() {
             <div>
               <label
                 htmlFor="access-password"
-                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-zinc-300"
+                className="mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300"
               >
                 Senha de acesso
               </label>
               <div className="relative">
-                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                <KeyRound className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                 <input
                   id="access-password"
                   type={showPassword ? 'text' : 'password'}
@@ -599,12 +631,12 @@ export default function App() {
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="Digite a senha"
-                  className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 py-2.5 pl-9 pr-10 font-mono text-sm text-slate-900 dark:text-zinc-100 placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:border-blue-600 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] py-2.5 pl-9 pr-10 font-mono text-sm text-slate-900 dark:text-white placeholder:font-sans placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 dark:text-zinc-500 hover:text-slate-700 dark:hover:text-zinc-200"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-white"
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -615,9 +647,9 @@ export default function App() {
             <button
               type="submit"
               disabled={signingIn || !passwordInput.trim()}
-              className="flex w-full items-center justify-center gap-2 rounded-md bg-blue-700 dark:bg-blue-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-800 dark:hover:bg-blue-500 disabled:opacity-50"
+              className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2.5 text-sm font-medium text-white shadow-sm shadow-blue-600/25 transition-colors hover:bg-blue-500 disabled:opacity-50"
             >
-              {signingIn ? 'Verificando...' : 'Entrar'}
+              {signingIn ? 'Verificando...' : 'Entrar no Sistema'}
             </button>
           </form>
         </div>
@@ -780,97 +812,119 @@ export default function App() {
   }
 
   const selectFilterCls =
-    'rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-200 focus:border-blue-500 focus:outline-none';
+    'rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-blue-500 focus:outline-none';
 
   const inlineSelectCls =
-    'w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs text-slate-800 dark:text-zinc-200 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-white dark:hover:bg-zinc-950 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none';
+    'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none';
 
   const statusSelectCls =
-    'rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-1.5 py-0.5 text-[11px] text-slate-700 dark:text-zinc-200 focus:border-blue-500 focus:outline-none';
+    'rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2 py-0.5 text-[11px] font-medium text-slate-700 dark:text-slate-200 focus:border-blue-500 focus:outline-none';
+
+  const primaryNav = navItems.slice(0, 5);
+  const secondaryNav = navItems.slice(5);
+
+  const renderNavButton = (item: (typeof navItems)[number]) => {
+    const Icon = item.icon;
+    const active = activeSection === item.id;
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          setActiveSection(item.id);
+          setMobileNavOpen(false);
+        }}
+        className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-xs font-medium transition-colors duration-150 whitespace-nowrap ${
+          active
+            ? 'bg-blue-600 text-white shadow-xs shadow-blue-600/20'
+            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/90 dark:hover:bg-white/[0.05] hover:text-slate-900 dark:hover:text-white'
+        }`}
+      >
+        <span className="flex items-center gap-2.5">
+          <Icon className="h-4 w-4 shrink-0" />
+          <span>{item.label}</span>
+        </span>
+        {item.count !== undefined && (
+          <span
+            className={`font-mono text-[11px] tabular-nums ${
+              active
+                ? 'text-blue-100'
+                : item.id === 'documentos' && pendencias.length > 0
+                  ? 'font-semibold text-slate-900 dark:text-white'
+                  : 'text-slate-400 dark:text-slate-500'
+            }`}
+          >
+            {item.count}
+          </span>
+        )}
+      </button>
+    );
+  };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 dark:bg-zinc-950 text-slate-900 dark:text-zinc-100">
+    <div className="flex min-h-screen bg-[#F4F6FA] dark:bg-[#07090E] text-slate-900 dark:text-slate-100">
       {/* Mobile Sidebar Backdrop */}
       {mobileNavOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/70 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs lg:hidden"
           onClick={() => setMobileNavOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col border-r border-slate-200 dark:border-zinc-800/90 bg-white dark:bg-[#0C0C0F] text-slate-800 dark:text-zinc-100 transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0B0F17] text-slate-800 dark:text-slate-100 transition-transform lg:static lg:translate-x-0 ${
           mobileNavOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800/90 px-5 py-4">
+        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-4">
           <div className="flex items-center gap-3">
             <BrandEmblem />
-            <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
-              El Nathan Transportes
-            </span>
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-bold tracking-tight text-slate-900 dark:text-white">
+                El Nathan Transportes
+              </span>
+              <span className="block text-[11px] text-slate-500 dark:text-slate-400">
+                Gestão de Frota
+              </span>
+            </div>
           </div>
           <button
             type="button"
             onClick={() => setMobileNavOpen(false)}
-            className="rounded p-1 text-slate-400 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white lg:hidden"
+            className="rounded-lg p-1.5 text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-900 dark:hover:text-white lg:hidden"
             aria-label="Fechar menu"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = activeSection === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => {
-                  setActiveSection(item.id);
-                  setMobileNavOpen(false);
-                }}
-                className={`flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left text-xs font-medium transition-colors whitespace-nowrap ${
-                  active
-                    ? 'bg-blue-700 dark:bg-blue-600 text-white'
-                    : 'text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900 hover:text-slate-900 dark:hover:text-zinc-100'
-                }`}
-              >
-                <span className="flex items-center gap-2.5">
-                  <Icon className="h-4 w-4 shrink-0" />
-                  <span>{item.label}</span>
-                </span>
-                {item.count !== undefined && (
-                  <span
-                    className={`font-mono text-[11px] tabular-nums ${
-                      active
-                        ? 'text-blue-100'
-                        : item.id === 'documentos' && pendencias.length > 0
-                          ? 'font-semibold text-amber-600 dark:text-amber-400'
-                          : 'text-slate-400 dark:text-zinc-500'
-                    }`}
-                  >
-                    {item.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+        <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
+          <div className="space-y-1">
+            <p className="px-3 pb-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Operação Documental
+            </p>
+            {primaryNav.map(renderNavButton)}
+          </div>
+
+          <div className="space-y-1 border-t border-slate-200/70 dark:border-white/[0.06] pt-4">
+            <p className="px-3 pb-1 text-[11px] font-medium text-slate-400 dark:text-slate-500">
+              Financeiro e Rotas
+            </p>
+            {secondaryNav.map(renderNavButton)}
+          </div>
         </nav>
 
         {/* Theme Switcher & Operator Footer */}
-        <div className="space-y-3 border-t border-slate-200 dark:border-zinc-800/90 p-4">
-          <div className="grid grid-cols-2 gap-1 rounded-md border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-950 p-1">
+        <div className="space-y-3 border-t border-slate-200/80 dark:border-white/[0.07] p-4">
+          <div className="grid grid-cols-2 gap-1 rounded-lg border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-[#07090E] p-1">
             <button
               type="button"
               onClick={() => setTheme('dark')}
-              className={`inline-flex items-center justify-center gap-1.5 rounded py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap ${
                 theme === 'dark'
-                  ? 'bg-zinc-800 text-white shadow-xs'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                  ? 'bg-[#161E2E] text-white shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Moon className="h-3 w-3" />
@@ -879,10 +933,10 @@ export default function App() {
             <button
               type="button"
               onClick={() => setTheme('light')}
-              className={`inline-flex items-center justify-center gap-1.5 rounded py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[11px] font-medium transition-colors whitespace-nowrap ${
                 theme === 'light'
                   ? 'bg-white text-slate-900 shadow-xs'
-                  : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               <Sun className="h-3 w-3" />
@@ -890,20 +944,20 @@ export default function App() {
             </button>
           </div>
 
-          <div className="flex items-center justify-between gap-2 pt-1">
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-slate-200/75 dark:border-white/[0.06] bg-slate-50/70 dark:bg-white/[0.02] px-3 py-2">
             <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-slate-900 dark:text-zinc-100">
+              <p className="truncate text-xs font-medium text-slate-900 dark:text-white">
                 {user.displayName || 'Operador Autorizado'}
               </p>
-              <p className="truncate text-[11px] text-slate-500 dark:text-zinc-400">
-                {user.email || 'Sessão por senha ativa'}
+              <p className="truncate text-[11px] text-slate-500 dark:text-slate-400">
+                {user.email || 'Sessão ativa'}
               </p>
             </div>
             <button
               type="button"
               onClick={handleLogout}
               title="Sair do sistema"
-              className="rounded p-1.5 text-slate-400 dark:text-zinc-400 transition-colors hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-900 dark:hover:text-white"
+              className="rounded-md p-1.5 text-slate-400 dark:text-slate-400 transition-colors hover:bg-slate-200/70 dark:hover:bg-white/[0.08] hover:text-slate-900 dark:hover:text-white"
               aria-label="Sair"
             >
               <LogOut className="h-4 w-4" />
@@ -915,22 +969,22 @@ export default function App() {
       {/* Main Content Area */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top Bar */}
-        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 dark:border-zinc-800/90 bg-white/95 dark:bg-zinc-950/90 px-4 py-3 backdrop-blur-xs sm:px-6">
+        <header className="sticky top-0 z-30 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200/80 dark:border-white/[0.07] bg-white/90 dark:bg-[#07090E]/90 px-4 py-3 backdrop-blur-md sm:px-6">
           <div className="flex items-center gap-3">
             <button
               type="button"
               onClick={() => setMobileNavOpen(true)}
-              className="rounded border border-slate-200 dark:border-zinc-800 p-1.5 text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-900 lg:hidden"
+              className="rounded-lg border border-slate-200 dark:border-white/[0.1] p-1.5 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-white/[0.06] lg:hidden"
               aria-label="Abrir menu"
             >
               <Menu className="h-4 w-4" />
             </button>
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-zinc-400">
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
               <span className="hidden sm:inline">El Nathan Transportes</span>
-              <span aria-hidden="true" className="hidden sm:inline">
+              <span aria-hidden="true" className="hidden sm:inline text-slate-300 dark:text-slate-600">
                 /
               </span>
-              <span className="font-semibold text-slate-900 dark:text-zinc-100">
+              <span className="text-sm font-semibold text-slate-900 dark:text-white">
                 {sectionTitles[activeSection]}
               </span>
             </div>
@@ -938,20 +992,20 @@ export default function App() {
 
           <div className="flex flex-1 items-center justify-end gap-2.5 sm:gap-3">
             <div className="relative w-full max-w-xs">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
               <input
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Buscar por nome, CPF/CNPJ ou placa..."
-                className="w-full rounded-md border border-slate-300 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900 py-1.5 pl-8 pr-3 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:border-blue-600 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none"
+                className="w-full rounded-lg border border-slate-300/90 dark:border-white/[0.1] bg-slate-50 dark:bg-[#0F1520] py-1.5 pl-8.5 pr-3 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 dark:focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
             </div>
 
             <button
               type="button"
               onClick={handleExportExcel}
-              className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-zinc-200 transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300/90 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap shrink-0"
             >
               <Download className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">Exportar Excel</span>
@@ -960,7 +1014,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setUploadModalOpen(true)}
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 dark:bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-800 dark:hover:bg-blue-500 whitespace-nowrap shrink-0"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white shadow-xs shadow-blue-600/20 transition-colors hover:bg-blue-500 whitespace-nowrap shrink-0"
             >
               <Upload className="h-3.5 w-3.5" />
               <span>Enviar Documento</span>
@@ -971,13 +1025,13 @@ export default function App() {
         <main className="flex-1 space-y-6 p-4 sm:p-6">
           {toast && (
             <div
-              className={`flex items-center justify-between gap-3 rounded-md border px-4 py-2.5 text-xs ${
+              className={`flex items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs ${
                 toast.type === 'success'
-                  ? 'border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-300'
-                  : 'border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 text-red-800 dark:text-red-300'
+                  ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-800 dark:text-emerald-300'
+                  : 'border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300'
               }`}
             >
-              <span className="flex items-center gap-2">
+              <span className="flex items-center gap-2 font-medium">
                 {toast.type === 'success' ? (
                   <CheckCircle2 className="h-4 w-4 shrink-0" />
                 ) : (
@@ -988,7 +1042,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => setToast(null)}
-                className="text-current opacity-70 hover:opacity-100"
+                className="rounded p-0.5 text-current opacity-70 hover:opacity-100"
                 aria-label="Fechar aviso"
               >
                 <X className="h-3.5 w-3.5" />
@@ -997,7 +1051,7 @@ export default function App() {
           )}
 
           {dataError && (
-            <div className="rounded-md border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-4 py-3 text-xs text-red-700 dark:text-red-300">
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-xs text-red-700 dark:text-red-300">
               Erro ao carregar dados: {dataError}
             </div>
           )}
@@ -1010,15 +1064,20 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSection('motoristas')}
-                  className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-zinc-700"
+                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-blue-500/40 dark:hover:border-blue-400/35"
                 >
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-                    Motoristas Cadastrados
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Motoristas Cadastrados
+                    </p>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                      <Users className="h-4 w-4" />
+                    </span>
+                  </div>
                   <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
                     {loadingData ? '—' : kpis.totalMotoristas}
                   </p>
-                  <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400 tabular-nums">
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
                     {kpis.motAprovados} aprovados · {kpis.totalMotoristas - kpis.motAprovados} em revisão/pendentes
                   </p>
                 </button>
@@ -1026,19 +1085,24 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSection('veiculos')}
-                  className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-zinc-700"
+                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-emerald-500/40 dark:hover:border-emerald-400/35"
                 >
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-                    Veículos Disponíveis
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Veículos Disponíveis
+                    </p>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <Truck className="h-4 w-4" />
+                    </span>
+                  </div>
                   <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
                     {loadingData ? '—' : kpis.veiDisponiveis}
-                    <span className="text-sm font-normal text-slate-400 dark:text-zinc-500">
+                    <span className="text-sm font-normal text-slate-400 dark:text-slate-500">
                       {' '}
                       / {kpis.totalVeiculos}
                     </span>
                   </p>
-                  <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400">
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
                     Frota regularizada e com CRLV em dia
                   </p>
                 </button>
@@ -1049,11 +1113,22 @@ export default function App() {
                     setActiveSection('documentos');
                     setPendenciaTab('pendencias');
                   }}
-                  className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-zinc-700"
+                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-white/[0.18]"
                 >
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-                    Pendências Documentais
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Pendências Documentais
+                    </p>
+                    <span
+                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
+                        kpis.totalPendencias > 0
+                          ? 'bg-red-500/10 text-red-600 dark:text-red-400'
+                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
+                      <FileWarning className="h-4 w-4" />
+                    </span>
+                  </div>
                   <p
                     className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${
                       kpis.totalPendencias > 0
@@ -1063,7 +1138,7 @@ export default function App() {
                   >
                     {loadingData ? '—' : kpis.totalPendencias}
                   </p>
-                  <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400 tabular-nums">
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
                     {kpis.vencidosCount} vencidos · {kpis.faltantesCount} documentos faltantes
                   </p>
                 </button>
@@ -1071,15 +1146,20 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setActiveSection('proprietarios')}
-                  className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-zinc-700"
+                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-blue-500/40 dark:hover:border-blue-400/35"
                 >
-                  <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
-                    Proprietários Vinculados
-                  </p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Proprietários Vinculados
+                    </p>
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300">
+                      <Building2 className="h-4 w-4" />
+                    </span>
+                  </div>
                   <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
                     {loadingData ? '—' : kpis.totalProprietarios}
                   </p>
-                  <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400">
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
                     {documentos.length} documentos arquivados no sistema
                   </p>
                 </button>
@@ -1088,13 +1168,13 @@ export default function App() {
               {/* Operational Split */}
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
                 {/* Actionable Pendencies */}
-                <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 xl:col-span-2">
-                  <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-5 py-3.5">
+                <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] xl:col-span-2">
+                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-4">
                     <div>
-                      <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                         Alertas de Documentação e Pendências
                       </h2>
-                      <p className="text-xs text-slate-500 dark:text-zinc-400">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
                         Documentos vencidos, arquivos faltantes ou campos aguardando preenchimento manual
                       </p>
                     </div>
@@ -1104,25 +1184,25 @@ export default function App() {
                         setActiveSection('documentos');
                         setPendenciaTab('pendencias');
                       }}
-                      className="text-xs font-medium text-blue-700 dark:text-blue-400 hover:underline whitespace-nowrap"
+                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
                     >
                       Ver todas
                     </button>
                   </div>
 
                   {loadingData ? (
-                    <div className="p-6 text-xs text-slate-500 dark:text-zinc-400">
+                    <div className="p-6 text-xs text-slate-500 dark:text-slate-400">
                       Carregando registros...
                     </div>
                   ) : filteredPendencias.length === 0 ? (
                     <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
                       <CheckCircle2 className="mb-2.5 h-7 w-7 text-emerald-600 dark:text-emerald-400" />
-                      <p className="text-sm font-medium text-slate-800 dark:text-zinc-100">
+                      <p className="text-sm font-medium text-slate-800 dark:text-white">
                         {motoristas.length === 0 && veiculos.length === 0
                           ? 'Nenhum cadastro registrado ainda'
                           : 'Nenhuma pendência documental encontrada'}
                       </p>
-                      <p className="mt-1 max-w-md text-xs text-slate-500 dark:text-zinc-400">
+                      <p className="mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
                         {motoristas.length === 0 && veiculos.length === 0
                           ? 'Envie uma CNH ou CRLV em PDF ou imagem para iniciar o cadastro automático da frota.'
                           : 'Todos os motoristas, veículos e documentos cadastrados estão em dia.'}
@@ -1131,7 +1211,7 @@ export default function App() {
                         <button
                           type="button"
                           onClick={() => setUploadModalOpen(true)}
-                          className="mt-4 inline-flex items-center gap-1.5 rounded-md bg-blue-700 dark:bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500"
+                          className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-500"
                         >
                           <Upload className="h-3.5 w-3.5" />
                           Enviar Primeiro Documento
@@ -1139,11 +1219,11 @@ export default function App() {
                       )}
                     </div>
                   ) : (
-                    <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+                    <div className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                       {filteredPendencias.slice(0, 8).map((pen) => (
                         <div
                           key={pen.id}
-                          className="flex items-center justify-between gap-4 px-5 py-3 text-xs transition-colors hover:bg-slate-50 dark:hover:bg-zinc-800/50"
+                          className="flex items-center justify-between gap-4 px-5 py-3.5 text-xs transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                         >
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
@@ -1154,8 +1234,8 @@ export default function App() {
                                     : pen.categoria === 'faltante'
                                       ? 'text-orange-700 dark:text-orange-400'
                                       : pen.categoria === 'a_vencer'
-                                        ? 'text-amber-700 dark:text-amber-400'
-                                        : 'text-slate-700 dark:text-zinc-300'
+                                        ? 'text-slate-800 dark:text-white'
+                                        : 'text-slate-700 dark:text-slate-300'
                                 }`}
                               >
                                 {pen.categoria === 'vencido'
@@ -1166,14 +1246,14 @@ export default function App() {
                                       ? 'A Vencer'
                                       : 'Campo Pendente'}
                               </span>
-                              <span aria-hidden="true" className="text-slate-300 dark:text-zinc-700">
+                              <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
                                 ·
                               </span>
-                              <span className="truncate font-medium text-slate-900 dark:text-zinc-100">
+                              <span className="truncate font-medium text-slate-900 dark:text-white">
                                 {pen.entidadeTitulo}
                               </span>
                             </div>
-                            <p className="mt-0.5 truncate text-slate-600 dark:text-zinc-400">
+                            <p className="mt-0.5 truncate text-slate-600 dark:text-slate-400">
                               {pen.descricao}
                             </p>
                           </div>
@@ -1188,7 +1268,7 @@ export default function App() {
                                     : 'proprietarios'
                               );
                             }}
-                            className="shrink-0 rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 whitespace-nowrap"
+                            className="shrink-0 rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] whitespace-nowrap"
                           >
                             Corrigir
                           </button>
@@ -1200,11 +1280,11 @@ export default function App() {
 
                 {/* Fleet Breakdown & Quick Actions */}
                 <div className="space-y-6">
-                  <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                  <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                       Frota por Tipo de Veículo
                     </h2>
-                    <div className="mt-4 space-y-3 text-xs">
+                    <div className="mt-4 space-y-3.5 text-xs">
                       {(['Van', 'HR', 'VUC', 'Médio'] as const).map((tipo) => {
                         const count = veiculos.filter((v) => v.tipoVeiculo === tipo).length;
                         const aprov = veiculos.filter(
@@ -1215,17 +1295,17 @@ export default function App() {
                         return (
                           <div key={tipo} className="space-y-1.5">
                             <div className="flex items-center justify-between">
-                              <span className="font-medium text-slate-700 dark:text-zinc-200">
+                              <span className="font-medium text-slate-700 dark:text-slate-200">
                                 {tipo}
                               </span>
-                              <span className="font-mono tabular-nums text-slate-900 dark:text-zinc-100">
+                              <span className="font-mono tabular-nums text-slate-900 dark:text-white">
                                 {count}{' '}
-                                <span className="text-slate-400 dark:text-zinc-500">
+                                <span className="text-slate-400 dark:text-slate-500">
                                   ({aprov} aprov.)
                                 </span>
                               </span>
                             </div>
-                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-zinc-800">
+                            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/[0.06]">
                               <div
                                 className="h-full rounded-full bg-blue-600 dark:bg-blue-500 transition-all"
                                 style={{ width: `${pct}%` }}
@@ -1234,26 +1314,26 @@ export default function App() {
                           </div>
                         );
                       })}
-                      <div className="flex items-center justify-between border-t border-slate-100 dark:border-zinc-800 pt-2.5">
-                        <span className="font-medium text-amber-700 dark:text-amber-400">
+                      <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/[0.06] pt-3">
+                        <span className="font-medium text-slate-800 dark:text-white">
                           Tipo Pendente
                         </span>
-                        <span className="font-mono tabular-nums text-amber-700 dark:text-amber-400">
+                        <span className="font-mono tabular-nums text-slate-800 dark:text-white">
                           {veiculos.filter((v) => !v.tipoVeiculo).length}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-                    <h2 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+                  <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+                    <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
                       Ações Rápidas de Cadastro
                     </h2>
                     <div className="mt-3 grid grid-cols-1 gap-2">
                       <button
                         type="button"
                         onClick={() => setUploadModalOpen(true)}
-                        className="flex items-center justify-between rounded-md border border-blue-200 dark:border-blue-800/70 bg-blue-50/70 dark:bg-blue-950/40 px-3.5 py-2.5 text-xs font-medium text-blue-800 dark:text-blue-300 hover:bg-blue-100/70 dark:hover:bg-blue-950/70"
+                        className="flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 px-3.5 py-2.5 text-xs font-medium text-blue-700 dark:text-blue-300 transition-colors hover:bg-blue-500/15"
                       >
                         <span>Enviar PDF ou Imagem (Extração Automática)</span>
                         <Upload className="h-3.5 w-3.5 shrink-0" />
@@ -1261,7 +1341,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setManualModalMode('motorista')}
-                        className="flex items-center justify-between rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                        className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
                         <span>Cadastrar Motorista Manualmente</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
@@ -1269,7 +1349,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setManualModalMode('veiculo')}
-                        className="flex items-center justify-between rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                        className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
                         <span>Cadastrar Veículo Manualmente</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
@@ -1277,7 +1357,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => setManualModalMode('proprietario')}
-                        className="flex items-center justify-between rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950/60 px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                        className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
                         <span>Cadastrar Proprietário Manualmente</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
@@ -1293,18 +1373,18 @@ export default function App() {
           {activeSection === 'motoristas' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-1">
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
                   {SITUACAO_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setSituacaoFilter(opt.value)}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                         situacaoFilter === opt.value
                           ? opt.value === 'aprovado'
                             ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                            : 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -1328,7 +1408,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setManualModalMode('motorista')}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Novo Motorista
@@ -1336,31 +1416,32 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
-                <div className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 px-4 py-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                  Planilha editável: clique em qualquer campo para editar diretamente. Motoristas aprovados ficam destacados em verde; campos em âmbar estão pendentes.
+              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  Planilha editável: clique em qualquer campo para editar diretamente. Motoristas aprovados ficam destacados em verde.
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                        <th className="px-3 py-2.5">Nome Completo</th>
-                        <th className="px-3 py-2.5">CPF</th>
-                        <th className="px-3 py-2.5">CNH</th>
-                        <th className="px-3 py-2.5">Cat.</th>
-                        <th className="px-3 py-2.5">Validade CNH</th>
-                        <th className="px-3 py-2.5">Telefone</th>
-                        <th className="px-3 py-2.5">Proprietário</th>
-                        <th className="px-3 py-2.5">Situação</th>
-                        <th className="px-3 py-2.5 text-right">Ações</th>
+                      <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        <th className="px-3.5 py-3">Nome Completo</th>
+                        <th className="px-3.5 py-3">CPF</th>
+                        <th className="px-3.5 py-3">CNH</th>
+                        <th className="px-3.5 py-3">Cat.</th>
+                        <th className="px-3.5 py-3">Validade CNH</th>
+                        <th className="px-3.5 py-3">Telefone</th>
+                        <th className="px-3.5 py-3">Placa</th>
+                        <th className="px-3.5 py-3">Proprietário</th>
+                        <th className="px-3.5 py-3">Situação</th>
+                        <th className="px-3.5 py-3 text-right">Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+                    <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                       {filteredMotoristas.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={9}
-                            className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                            colSpan={10}
+                            className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                           >
                             Nenhum motorista encontrado para os filtros aplicados.
                           </td>
@@ -1371,6 +1452,7 @@ export default function App() {
                           const missing = computeMotoristaPendingFields(m);
                           const isApproved = m.situacaoCadastral === 'aprovado';
                           const cellTone = isApproved ? 'emerald' : 'default';
+                          const linkedVehiclePlate = motPlateByVehicleMap.get(m.id) || '';
                           const safeOwnerId =
                             m.proprietarioId && propMap.has(m.proprietarioId) ? m.proprietarioId : '';
                           const saveMotPatch = (
@@ -1393,11 +1475,11 @@ export default function App() {
                               key={m.id}
                               className={`transition-colors ${
                                 isApproved
-                                  ? 'border-l-4 border-l-emerald-500 bg-emerald-50/75 dark:bg-emerald-950/35 hover:bg-emerald-100/60 dark:hover:bg-emerald-950/55'
-                                  : 'hover:bg-slate-50/80 dark:hover:bg-zinc-800/40'
+                                  ? 'bg-emerald-50/85 dark:bg-emerald-950/35 hover:bg-emerald-100/70 dark:hover:bg-emerald-950/55'
+                                  : 'hover:bg-slate-50/90 dark:hover:bg-white/[0.025]'
                               }`}
                             >
-                              <td className="px-2 py-1.5 min-w-[180px]">
+                              <td className="px-2.5 py-2 min-w-[180px]">
                                 <EditableCell
                                   value={m.nomeCompleto}
                                   tone={cellTone}
@@ -1415,23 +1497,23 @@ export default function App() {
                                   }}
                                 />
                                 {missing.length > 0 && (
-                                  <span className="block px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
                                     Falta: {missing.join(', ')}
                                   </span>
                                 )}
                                 {m.observacoes && (
                                   <span
-                                    className={`block max-w-[220px] truncate px-1.5 text-[10px] ${
+                                    className={`block max-w-[220px] truncate px-2 text-[10px] ${
                                       isApproved
                                         ? 'text-emerald-700/80 dark:text-emerald-400/80'
-                                        : 'text-slate-400 dark:text-zinc-500'
+                                        : 'text-slate-400 dark:text-slate-500'
                                     }`}
                                   >
                                     Obs.: {m.observacoes}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[130px]">
+                              <td className="px-2.5 py-2 min-w-[130px]">
                                 <EditableCell
                                   value={m.cpf}
                                   mono
@@ -1441,7 +1523,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[120px]">
+                              <td className="px-2.5 py-2 min-w-[120px]">
                                 <EditableCell
                                   value={m.cnh}
                                   mono
@@ -1451,7 +1533,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 w-[75px]">
+                              <td className="px-2.5 py-2 w-[75px]">
                                 <EditableCell
                                   value={m.categoriaCnh}
                                   mono
@@ -1464,7 +1546,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[130px]">
+                              <td className="px-2.5 py-2 min-w-[130px]">
                                 <EditableCell
                                   value={m.validadeCnh}
                                   type="date"
@@ -1486,20 +1568,20 @@ export default function App() {
                                   }}
                                 />
                                 {cnhExpiryStatus === 'vencido' ? (
-                                  <span className="block px-1.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                                  <span className="block px-2 text-[10px] font-medium text-red-700 dark:text-red-400">
                                     CNH vencida
                                   </span>
                                 ) : cnhExpiryStatus === 'a_vencer' ? (
-                                  <span className="block px-1.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                                  <span className="block px-2 text-[10px] font-medium text-slate-700 dark:text-white">
                                     Vence em breve
                                   </span>
                                 ) : isApproved && cnhExpiryStatus === 'valido' ? (
-                                  <span className="block px-1.5 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
+                                  <span className="block px-2 text-[10px] font-medium text-emerald-700 dark:text-emerald-400">
                                     CNH em dia
                                   </span>
                                 ) : null}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[130px]">
+                              <td className="px-2.5 py-2 min-w-[130px]">
                                 <EditableCell
                                   value={m.telefone}
                                   tone={cellTone}
@@ -1508,7 +1590,22 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[160px]">
+                              <td className="px-2.5 py-2 min-w-[115px]">
+                                <EditableCell
+                                  value={m.placa || linkedVehiclePlate}
+                                  mono
+                                  tone={cellTone}
+                                  requiredPending={false}
+                                  placeholder="Informar placa"
+                                  onSave={async (val) => {
+                                    await saveMotPatch(
+                                      { placa: val.toUpperCase() },
+                                      'Placa do motorista atualizada.'
+                                    );
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2.5 py-2 min-w-[160px]">
                                 <select
                                   value={safeOwnerId}
                                   onChange={async (e) => {
@@ -1519,7 +1616,7 @@ export default function App() {
                                   }}
                                   className={
                                     isApproved
-                                      ? 'w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 focus:border-emerald-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none'
+                                      ? 'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs font-medium text-emerald-800 dark:text-emerald-300 hover:border-emerald-300 dark:hover:border-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/70 focus:border-emerald-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none'
                                       : inlineSelectCls
                                   }
                                 >
@@ -1531,7 +1628,7 @@ export default function App() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5 min-w-[160px]">
+                              <td className="px-2.5 py-2 min-w-[160px]">
                                 <div className="flex flex-col gap-1">
                                   <SituacaoIndicator situacao={m.situacaoCadastral} />
                                   <select
@@ -1546,7 +1643,7 @@ export default function App() {
                                     }}
                                     className={
                                       isApproved
-                                        ? 'rounded border border-emerald-400 dark:border-emerald-700/80 bg-emerald-100/80 dark:bg-emerald-950/70 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 focus:border-emerald-500 focus:outline-none'
+                                        ? 'rounded-md border border-emerald-400/70 dark:border-emerald-700/70 bg-emerald-100/80 dark:bg-emerald-950/70 px-2 py-0.5 text-[11px] font-medium text-emerald-800 dark:text-emerald-300 focus:border-emerald-500 focus:outline-none'
                                         : statusSelectCls
                                     }
                                   >
@@ -1560,15 +1657,15 @@ export default function App() {
                                   </select>
                                 </div>
                               </td>
-                              <td className="px-3 py-1.5 text-right">
+                              <td className="px-3.5 py-2 text-right">
                                 <div className="inline-flex items-center justify-end gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => setEditingEntity({ type: 'motorista', data: m })}
-                                    className={`inline-flex items-center gap-1 rounded border px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
+                                    className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
                                       isApproved
-                                        ? 'border-emerald-300 dark:border-emerald-700/80 bg-emerald-100/70 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-900/60'
-                                        : 'border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800'
+                                        ? 'border-emerald-300 dark:border-emerald-700/70 bg-emerald-100/70 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-200/70 dark:hover:bg-emerald-900/60'
+                                        : 'border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06]'
                                     }`}
                                     title="Editar motorista e status"
                                   >
@@ -1578,7 +1675,7 @@ export default function App() {
                                   <button
                                     type="button"
                                     onClick={() => requestDeleteMotorista(m)}
-                                    className="inline-flex items-center gap-1 rounded border border-transparent p-1.5 text-slate-400 dark:text-zinc-500 hover:border-red-200 dark:hover:border-red-900/60 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                    className="inline-flex items-center gap-1 rounded-md border border-transparent p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                     title="Excluir motorista"
                                     aria-label={`Excluir motorista ${m.nomeCompleto}`}
                                   >
@@ -1601,16 +1698,16 @@ export default function App() {
           {activeSection === 'veiculos' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-1">
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
                   {SITUACAO_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setSituacaoFilter(opt.value)}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                         situacaoFilter === opt.value
-                          ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                          ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -1647,7 +1744,7 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setManualModalMode('veiculo')}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
                   >
                     <Plus className="h-3.5 w-3.5" />
                     Novo Veículo
@@ -1655,33 +1752,33 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
-                <div className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 px-4 py-2 text-[11px] text-slate-500 dark:text-zinc-400">
+              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
                   Planilha editável da frota: clique em qualquer célula para atualizar placa, modelo, marca, ano, RENAVAM, tipo (Van, HR, VUC, Médio) ou proprietário.
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                        <th className="px-3 py-2.5">Placa</th>
-                        <th className="px-3 py-2.5">Marca</th>
-                        <th className="px-3 py-2.5">Modelo</th>
-                        <th className="px-3 py-2.5">Ano</th>
-                        <th className="px-3 py-2.5">RENAVAM</th>
-                        <th className="px-3 py-2.5">Tipo</th>
-                        <th className="px-3 py-2.5">Proprietário</th>
-                        <th className="px-3 py-2.5">Motorista</th>
-                        <th className="px-3 py-2.5">Validade CRLV</th>
-                        <th className="px-3 py-2.5">Situação</th>
-                        <th className="px-3 py-2.5 text-right">Ações</th>
+                      <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        <th className="px-3.5 py-3">Placa</th>
+                        <th className="px-3.5 py-3">Marca</th>
+                        <th className="px-3.5 py-3">Modelo</th>
+                        <th className="px-3.5 py-3">Ano</th>
+                        <th className="px-3.5 py-3">RENAVAM</th>
+                        <th className="px-3.5 py-3">Tipo</th>
+                        <th className="px-3.5 py-3">Proprietário</th>
+                        <th className="px-3.5 py-3">Motorista</th>
+                        <th className="px-3.5 py-3">Validade CRLV</th>
+                        <th className="px-3.5 py-3">Situação</th>
+                        <th className="px-3.5 py-3 text-right">Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+                    <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                       {filteredVeiculos.length === 0 ? (
                         <tr>
                           <td
                             colSpan={11}
-                            className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                            className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                           >
                             Nenhum veículo encontrado para os filtros aplicados.
                           </td>
@@ -1693,9 +1790,9 @@ export default function App() {
                           return (
                             <tr
                               key={v.id}
-                              className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                              className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-2 py-1.5 min-w-[100px]">
+                              <td className="px-2.5 py-2 min-w-[100px]">
                                 <EditableCell
                                   value={v.placa}
                                   mono
@@ -1704,12 +1801,12 @@ export default function App() {
                                   }}
                                 />
                                 {missing.length > 0 && (
-                                  <span className="block px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
                                     {missing.length} pend.
                                   </span>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[110px]">
+                              <td className="px-2.5 py-2 min-w-[110px]">
                                 <EditableCell
                                   value={v.marca}
                                   onSave={async (val) => {
@@ -1717,7 +1814,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[140px]">
+                              <td className="px-2.5 py-2 min-w-[140px]">
                                 <EditableCell
                                   value={v.modelo}
                                   onSave={async (val) => {
@@ -1725,7 +1822,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 w-[90px]">
+                              <td className="px-2.5 py-2 w-[90px]">
                                 <EditableCell
                                   value={v.ano}
                                   mono
@@ -1734,7 +1831,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[125px]">
+                              <td className="px-2.5 py-2 min-w-[125px]">
                                 <EditableCell
                                   value={v.renavam}
                                   mono
@@ -1743,7 +1840,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[105px]">
+                              <td className="px-2.5 py-2 min-w-[105px]">
                                 <select
                                   value={v.tipoVeiculo}
                                   onChange={async (e) => {
@@ -1751,10 +1848,10 @@ export default function App() {
                                       tipoVeiculo: e.target.value as TipoVeiculo,
                                     });
                                   }}
-                                  className={`w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-white dark:hover:bg-zinc-950 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none ${
+                                  className={`w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none ${
                                     !v.tipoVeiculo
-                                      ? 'font-medium text-amber-700 dark:text-amber-400'
-                                      : 'text-slate-800 dark:text-zinc-200'
+                                      ? 'font-medium text-slate-800 dark:text-white'
+                                      : 'text-slate-800 dark:text-slate-200'
                                   }`}
                                 >
                                   <option value="">Pendente</option>
@@ -1764,7 +1861,7 @@ export default function App() {
                                   <option value="Médio">Médio</option>
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5 min-w-[155px]">
+                              <td className="px-2.5 py-2 min-w-[155px]">
                                 <select
                                   value={v.proprietarioId}
                                   onChange={async (e) => {
@@ -1772,10 +1869,10 @@ export default function App() {
                                       proprietarioId: e.target.value,
                                     });
                                   }}
-                                  className={`w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-white dark:hover:bg-zinc-950 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none ${
+                                  className={`w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none ${
                                     !v.proprietarioId
-                                      ? 'font-medium text-amber-700 dark:text-amber-400'
-                                      : 'text-slate-800 dark:text-zinc-200'
+                                      ? 'font-medium text-slate-800 dark:text-white'
+                                      : 'text-slate-800 dark:text-slate-200'
                                   }`}
                                 >
                                   <option value="">Pendente</option>
@@ -1786,7 +1883,7 @@ export default function App() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5 min-w-[145px]">
+                              <td className="px-2.5 py-2 min-w-[145px]">
                                 <select
                                   value={v.motoristaId}
                                   onChange={async (e) => {
@@ -1804,7 +1901,7 @@ export default function App() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-2 py-1.5 min-w-[125px]">
+                              <td className="px-2.5 py-2 min-w-[125px]">
                                 <EditableCell
                                   value={v.validadeCrlv}
                                   type="date"
@@ -1822,12 +1919,12 @@ export default function App() {
                                   }}
                                 />
                                 {crlvStatus === 'vencido' && (
-                                  <span className="block px-1.5 text-[10px] font-medium text-red-700 dark:text-red-400">
+                                  <span className="block px-2 text-[10px] font-medium text-red-700 dark:text-red-400">
                                     CRLV vencido
                                   </span>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[155px]">
+                              <td className="px-2.5 py-2 min-w-[155px]">
                                 <div className="flex flex-col gap-1">
                                   <SituacaoIndicator situacao={v.situacaoCadastral} />
                                   <select
@@ -1860,12 +1957,12 @@ export default function App() {
                                   </select>
                                 </div>
                               </td>
-                              <td className="px-3 py-1.5 text-right">
+                              <td className="px-3.5 py-2 text-right">
                                 <div className="inline-flex items-center justify-end gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() => setEditingEntity({ type: 'veiculo', data: v })}
-                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap"
                                     title="Editar veículo"
                                   >
                                     <Pencil className="h-3 w-3" />
@@ -1874,7 +1971,7 @@ export default function App() {
                                   <button
                                     type="button"
                                     onClick={() => requestDeleteVeiculo(v)}
-                                    className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                    className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                     title="Excluir veículo"
                                     aria-label={`Excluir veículo ${v.placa}`}
                                   >
@@ -1897,16 +1994,16 @@ export default function App() {
           {activeSection === 'proprietarios' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex flex-wrap items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-1">
+                <div className="flex flex-wrap items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
                   {SITUACAO_OPTIONS.map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
                       onClick={() => setSituacaoFilter(opt.value)}
-                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                         situacaoFilter === opt.value
-                          ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                          : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                          ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                          : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                       }`}
                     >
                       {opt.label}
@@ -1917,36 +2014,36 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setManualModalMode('proprietario')}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 py-1.5 text-xs font-medium text-slate-800 dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Novo Proprietário
                 </button>
               </div>
 
-              <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
-                <div className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 px-4 py-2 text-[11px] text-slate-500 dark:text-zinc-400">
-                  Selecione um motorista cadastrado diretamente na linha do proprietário ou clique em Gerenciar Vínculos para administrar motoristas e veículos.
+              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
+                  Selecione um motorista cadastrado diretamente na linha do proprietário ou clique em Vínculos para administrar motoristas e veículos.
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-left text-xs">
                     <thead>
-                      <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                        <th className="px-3 py-2.5">Nome Completo / Razão Social</th>
-                        <th className="px-3 py-2.5">CPF / CNPJ</th>
-                        <th className="px-3 py-2.5">Contato</th>
-                        <th className="px-3 py-2.5">Motoristas (Cadastrados)</th>
-                        <th className="px-3 py-2.5">Veículos</th>
-                        <th className="px-3 py-2.5">Situação</th>
-                        <th className="px-3 py-2.5 text-right">Vínculos / Ações</th>
+                      <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                        <th className="px-3.5 py-3">Nome Completo / Razão Social</th>
+                        <th className="px-3.5 py-3">CPF / CNPJ</th>
+                        <th className="px-3.5 py-3">Contato</th>
+                        <th className="px-3.5 py-3">Motoristas (Cadastrados)</th>
+                        <th className="px-3.5 py-3">Veículos</th>
+                        <th className="px-3.5 py-3">Situação</th>
+                        <th className="px-3.5 py-3 text-right">Vínculos / Ações</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+                    <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                       {filteredProprietarios.length === 0 ? (
                         <tr>
                           <td
                             colSpan={7}
-                            className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                            className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                           >
                             Nenhum proprietário cadastrado ainda.
                           </td>
@@ -1962,9 +2059,9 @@ export default function App() {
                           return (
                             <tr
                               key={p.id}
-                              className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                              className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-2 py-1.5 min-w-[190px]">
+                              <td className="px-2.5 py-2 min-w-[190px]">
                                 <EditableCell
                                   value={p.nomeCompleto}
                                   onSave={async (val) => {
@@ -1972,12 +2069,12 @@ export default function App() {
                                   }}
                                 />
                                 {missing.length > 0 && (
-                                  <span className="block px-1.5 text-[10px] text-amber-700 dark:text-amber-400">
+                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
                                     Falta: {missing.join(', ')}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[140px]">
+                              <td className="px-2.5 py-2 min-w-[140px]">
                                 <EditableCell
                                   value={p.cpfCnpj}
                                   mono
@@ -1986,7 +2083,7 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[150px]">
+                              <td className="px-2.5 py-2 min-w-[150px]">
                                 <EditableCell
                                   value={p.contato}
                                   onSave={async (val) => {
@@ -1994,14 +2091,14 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-2 py-1.5 min-w-[230px]">
+                              <td className="px-2.5 py-2 min-w-[230px]">
                                 <div className="space-y-1.5">
                                   {linkedMot.length > 0 && (
                                     <div className="flex flex-wrap gap-1">
                                       {linkedMot.map((m) => (
                                         <span
                                           key={m.id}
-                                          className="inline-flex items-center gap-1 rounded border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-950 px-2 py-0.5 text-[11px] font-medium text-slate-800 dark:text-zinc-200"
+                                          className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-white/[0.1] bg-slate-50 dark:bg-[#0B0F17] px-2 py-0.5 text-[11px] font-medium text-slate-800 dark:text-slate-200"
                                         >
                                           <span className="max-w-[140px] truncate">
                                             {m.nomeCompleto}
@@ -2015,7 +2112,7 @@ export default function App() {
                                                 `Motorista "${m.nomeCompleto}" desvinculado.`
                                               );
                                             }}
-                                            className="rounded p-0.5 text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400"
+                                            className="rounded p-0.5 text-slate-400 dark:text-slate-500 hover:text-red-600 dark:hover:text-red-400"
                                             title="Desvincular motorista"
                                             aria-label={`Desvincular motorista ${m.nomeCompleto}`}
                                           >
@@ -2040,10 +2137,10 @@ export default function App() {
                                         `Motorista "${target.nomeCompleto}" vinculado a ${p.nomeCompleto}.`
                                       );
                                     }}
-                                    className={`w-full rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 py-1 text-[11px] focus:border-blue-500 focus:outline-none ${
+                                    className={`w-full rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2 py-1 text-[11px] focus:border-blue-500 focus:outline-none ${
                                       linkedMot.length === 0
-                                        ? 'font-medium text-amber-700 dark:text-amber-400'
-                                        : 'text-slate-600 dark:text-zinc-300'
+                                        ? 'font-medium text-slate-800 dark:text-white'
+                                        : 'text-slate-600 dark:text-slate-300'
                                     }`}
                                   >
                                     <option value="">
@@ -2068,16 +2165,16 @@ export default function App() {
                                   </select>
                                 </div>
                               </td>
-                              <td className="px-3 py-2 text-xs text-slate-700 dark:text-zinc-300 tabular-nums">
+                              <td className="px-3.5 py-2 text-xs text-slate-700 dark:text-slate-300 tabular-nums">
                                 <span className="font-mono font-medium">{linkedVei.length}</span>{' '}
                                 {linkedVei.length === 1 ? 'veículo' : 'veículos'}
                                 {linkedVei.length > 0 && (
-                                  <span className="mt-0.5 block font-mono text-[10px] text-slate-500 dark:text-zinc-400">
+                                  <span className="mt-0.5 block font-mono text-[10px] text-slate-500 dark:text-slate-400">
                                     {linkedVei.map((v) => v.placa).join(', ')}
                                   </span>
                                 )}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[155px]">
+                              <td className="px-2.5 py-2 min-w-[155px]">
                                 <div className="flex flex-col gap-1">
                                   <SituacaoIndicator situacao={p.situacaoCadastral} />
                                   <select
@@ -2104,14 +2201,14 @@ export default function App() {
                                   </select>
                                 </div>
                               </td>
-                              <td className="px-3 py-1.5 text-right">
+                              <td className="px-3.5 py-2 text-right">
                                 <div className="inline-flex items-center gap-1.5">
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setEditingEntity({ type: 'proprietario', data: p })
                                     }
-                                    className="inline-flex items-center gap-1 rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    className="inline-flex items-center gap-1 rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap"
                                     title="Editar proprietário"
                                   >
                                     <Pencil className="h-3 w-3" />
@@ -2120,14 +2217,14 @@ export default function App() {
                                   <button
                                     type="button"
                                     onClick={() => setSelectedOwnerId(p.id)}
-                                    className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                    className="rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap"
                                   >
                                     Vínculos
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => requestDeleteProprietario(p)}
-                                    className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                    className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                     title="Excluir proprietário"
                                     aria-label={`Excluir proprietário ${p.nomeCompleto}`}
                                   >
@@ -2150,14 +2247,14 @@ export default function App() {
           {activeSection === 'documentos' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-1">
+                <div className="flex items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
                   <button
                     type="button"
                     onClick={() => setPendenciaTab('pendencias')}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       pendenciaTab === 'pendencias'
-                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                        ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Pendências e Vencimentos ({filteredPendencias.length})
@@ -2165,10 +2262,10 @@ export default function App() {
                   <button
                     type="button"
                     onClick={() => setPendenciaTab('documentos')}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
                       pendenciaTab === 'documentos'
-                        ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                        ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     Arquivos Enviados ({filteredDocumentos.length})
@@ -2178,7 +2275,7 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => setUploadModalOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 dark:bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500 whitespace-nowrap"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
                 >
                   <Upload className="h-3.5 w-3.5" />
                   Enviar Novo Documento
@@ -2186,24 +2283,24 @@ export default function App() {
               </div>
 
               {pendenciaTab === 'pendencias' ? (
-                <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
+                <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left text-xs">
                       <thead>
-                        <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                          <th className="px-4 py-2.5">Tipo de Alerta</th>
-                          <th className="px-4 py-2.5">Cadastro</th>
-                          <th className="px-4 py-2.5">Identificação</th>
-                          <th className="px-4 py-2.5">Detalhe da Pendência</th>
-                          <th className="px-4 py-2.5 text-right">Ação</th>
+                        <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          <th className="px-4 py-3">Tipo de Alerta</th>
+                          <th className="px-4 py-3">Cadastro</th>
+                          <th className="px-4 py-3">Identificação</th>
+                          <th className="px-4 py-3">Detalhe da Pendência</th>
+                          <th className="px-4 py-3 text-right">Ação</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+                      <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                         {filteredPendencias.length === 0 ? (
                           <tr>
                             <td
                               colSpan={5}
-                              className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                              className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                             >
                               Nenhuma pendência documental ativa.
                             </td>
@@ -2212,9 +2309,9 @@ export default function App() {
                           filteredPendencias.map((pen) => (
                             <tr
                               key={pen.id}
-                              className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                              className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-4 py-2.5 font-medium whitespace-nowrap">
+                              <td className="px-4 py-3 font-medium whitespace-nowrap">
                                 {pen.categoria === 'vencido' ? (
                                   <span className="inline-flex items-center gap-1.5 text-red-700 dark:text-red-400">
                                     <FileWarning className="h-3.5 w-3.5" />
@@ -2226,25 +2323,25 @@ export default function App() {
                                     Doc. Faltante
                                   </span>
                                 ) : pen.categoria === 'a_vencer' ? (
-                                  <span className="text-amber-700 dark:text-amber-400">
+                                  <span className="text-slate-800 dark:text-white">
                                     A Vencer (30d)
                                   </span>
                                 ) : (
-                                  <span className="text-slate-700 dark:text-zinc-300">
+                                  <span className="text-slate-700 dark:text-slate-300">
                                     Campo Pendente
                                   </span>
                                 )}
                               </td>
-                              <td className="px-4 py-2.5 font-mono text-[11px] uppercase text-slate-500 dark:text-zinc-400">
+                              <td className="px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
                                 {pen.entidadeTipo}
                               </td>
-                              <td className="px-4 py-2.5 font-medium text-slate-900 dark:text-zinc-100">
+                              <td className="px-4 py-3 font-medium text-slate-900 dark:text-white">
                                 {pen.entidadeTitulo}
                               </td>
-                              <td className="px-4 py-2.5 text-slate-600 dark:text-zinc-400">
+                              <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                                 {pen.descricao}
                               </td>
-                              <td className="px-4 py-2.5 text-right">
+                              <td className="px-4 py-3 text-right">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2256,7 +2353,7 @@ export default function App() {
                                           : 'proprietarios'
                                     )
                                   }
-                                  className="rounded border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                                  className="rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap"
                                 >
                                   Abrir Cadastro
                                 </button>
@@ -2269,26 +2366,26 @@ export default function App() {
                   </div>
                 </div>
               ) : (
-                <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
+                <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse text-left text-xs">
                       <thead>
-                        <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                          <th className="px-3 py-2.5">Tipo</th>
-                          <th className="px-3 py-2.5">Arquivo Enviado</th>
-                          <th className="px-3 py-2.5">Vínculo</th>
-                          <th className="px-3 py-2.5">Validade</th>
-                          <th className="px-3 py-2.5">Status</th>
-                          <th className="px-3 py-2.5">Resumo da Extração</th>
-                          <th className="px-3 py-2.5 text-right">Ações</th>
+                        <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                          <th className="px-3.5 py-3">Tipo</th>
+                          <th className="px-3.5 py-3">Arquivo Enviado</th>
+                          <th className="px-3.5 py-3">Vínculo</th>
+                          <th className="px-3.5 py-3">Validade</th>
+                          <th className="px-3.5 py-3">Status</th>
+                          <th className="px-3.5 py-3">Resumo da Extração</th>
+                          <th className="px-3.5 py-3 text-right">Ações</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+                      <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                         {filteredDocumentos.length === 0 ? (
                           <tr>
                             <td
                               colSpan={7}
-                              className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                              className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                             >
                               Nenhum documento enviado ainda.
                             </td>
@@ -2297,21 +2394,21 @@ export default function App() {
                           filteredDocumentos.map((d) => (
                             <tr
                               key={d.id}
-                              className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                              className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-3 py-2 font-medium text-slate-900 dark:text-zinc-100 whitespace-nowrap">
+                              <td className="px-3.5 py-2.5 font-medium text-slate-900 dark:text-white whitespace-nowrap">
                                 {d.tipoDocumento}
                               </td>
-                              <td className="px-3 py-2 max-w-[200px] truncate text-slate-700 dark:text-zinc-300">
+                              <td className="px-3.5 py-2.5 max-w-[200px] truncate text-slate-700 dark:text-slate-300">
                                 {d.nomeArquivo}
                               </td>
-                              <td className="px-3 py-2 text-slate-700 dark:text-zinc-300">
-                                <span className="font-mono text-[10px] uppercase text-slate-400 dark:text-zinc-500">
+                              <td className="px-3.5 py-2.5 text-slate-700 dark:text-slate-300">
+                                <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
                                   {d.entidadeTipo}
                                 </span>{' '}
                                 · {d.entidadeNome}
                               </td>
-                              <td className="px-2 py-1.5 min-w-[125px]">
+                              <td className="px-2.5 py-2 min-w-[125px]">
                                 <EditableCell
                                   value={d.dataValidade}
                                   type="date"
@@ -2331,13 +2428,13 @@ export default function App() {
                                   }}
                                 />
                               </td>
-                              <td className="px-3 py-2">
+                              <td className="px-3.5 py-2.5">
                                 <DocStatusIndicator status={d.statusDocumento} />
                               </td>
-                              <td className="px-3 py-2 max-w-[260px] truncate text-slate-600 dark:text-zinc-400">
+                              <td className="px-3.5 py-2.5 max-w-[260px] truncate text-slate-600 dark:text-slate-400">
                                 {d.resumoExtracao || '—'}
                               </td>
-                              <td className="px-3 py-2 text-right">
+                              <td className="px-3.5 py-2.5 text-right">
                                 <button
                                   type="button"
                                   onClick={() =>
@@ -2347,7 +2444,7 @@ export default function App() {
                                       title: `o documento "${d.nomeArquivo}"`,
                                     })
                                   }
-                                  className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                                  className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                   title="Excluir documento"
                                   aria-label={`Excluir documento ${d.nomeArquivo}`}
                                 >
@@ -2436,6 +2533,7 @@ export default function App() {
           entity={editingEntity}
           proprietarios={proprietarios}
           motoristas={motoristas}
+          veiculos={veiculos}
           onClose={() => setEditingEntity(null)}
           onSaved={(msg) => showToast('success', msg)}
           onRequestDelete={(target) => {

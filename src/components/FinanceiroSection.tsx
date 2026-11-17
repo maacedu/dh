@@ -38,16 +38,16 @@ interface FinanceiroSectionProps {
 
 const statusColorMap: Record<StatusFinanceiro, string> = {
   pago: 'text-emerald-700 dark:text-emerald-400',
-  pendente: 'text-amber-700 dark:text-amber-400',
+  pendente: 'text-slate-800 dark:text-white',
   atrasado: 'text-red-700 dark:text-red-400',
-  cancelado: 'text-slate-500 dark:text-zinc-500',
+  cancelado: 'text-slate-500 dark:text-slate-500',
 };
 
 const inlineSelectCls =
-  'w-full rounded border border-transparent bg-transparent px-1.5 py-1 text-xs text-slate-800 dark:text-zinc-200 hover:border-slate-300 dark:hover:border-zinc-700 hover:bg-white dark:hover:bg-zinc-950 focus:border-blue-500 focus:bg-white dark:focus:bg-zinc-950 focus:outline-none';
+  'w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs text-slate-800 dark:text-slate-200 hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none';
 
 const statusSelectCls =
-  'rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-2 py-1 text-[11px] font-medium focus:border-blue-500 focus:outline-none';
+  'rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2 py-1 text-[11px] font-medium focus:border-blue-500 focus:outline-none';
 
 export function FinanceiroSection({
   uid,
@@ -152,32 +152,32 @@ export function FinanceiroSection({
     <div className="space-y-6">
       {/* KPI Strip */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-          <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Receitas Registradas
           </p>
           <p className="mt-2 font-mono text-2xl font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
             {formatBrl(summary.receitas)}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
             Fretes e entradas faturadas
           </p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-          <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Despesas e Repasses
           </p>
           <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
             {formatBrl(summary.saidas)}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
             Pagamentos a proprietários, motoristas e custos
           </p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-          <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Saldo Previsto
           </p>
           <p
@@ -189,19 +189,19 @@ export function FinanceiroSection({
           >
             {formatBrl(summary.saldo)}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
             Resultado operacional líquido
           </p>
         </div>
 
-        <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-          <p className="text-xs font-medium text-slate-500 dark:text-zinc-400">
+        <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+          <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
             Em Aberto / Atrasados
           </p>
-          <p className="mt-2 font-mono text-2xl font-semibold text-amber-700 dark:text-amber-400 tabular-nums">
+          <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
             {formatBrl(summary.pendentes)}
           </p>
-          <p className="mt-1.5 text-xs text-slate-600 dark:text-zinc-400 tabular-nums">
+          <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
             {summary.pendentesCount} lançamento(s) aguardando liquidação
           </p>
         </div>
@@ -209,14 +209,14 @@ export function FinanceiroSection({
 
       {/* Sub-tabs + Controls */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-1 rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-100 dark:bg-zinc-900 p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
           <button
             type="button"
             onClick={() => setSubTab('lancamentos')}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
               subTab === 'lancamentos'
-                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Lançamentos ({filteredLancamentos.length})
@@ -224,10 +224,10 @@ export function FinanceiroSection({
           <button
             type="button"
             onClick={() => setSubTab('categorias')}
-            className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+            className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
               subTab === 'categorias'
-                ? 'bg-white dark:bg-zinc-800 text-slate-900 dark:text-white shadow-xs'
-                : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
             }`}
           >
             Categorias ({allCategoryNames.length})
@@ -239,7 +239,7 @@ export function FinanceiroSection({
             <select
               value={tipoFilter}
               onChange={(e) => setTipoFilter(e.target.value as 'todos' | TipoLancamento)}
-              className="rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-200 focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-blue-500 focus:outline-none"
             >
               <option value="todos">Todos os Tipos</option>
               <option value="receita">Receitas</option>
@@ -249,7 +249,7 @@ export function FinanceiroSection({
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as 'todos' | StatusFinanceiro)}
-              className="rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2.5 py-1.5 text-xs text-slate-700 dark:text-zinc-200 focus:border-blue-500 focus:outline-none"
+              className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-blue-500 focus:outline-none"
             >
               <option value="todos">Todos os Status</option>
               <option value="pendente">Pendente</option>
@@ -260,7 +260,7 @@ export function FinanceiroSection({
             <button
               type="button"
               onClick={onNewLancamento}
-              className="inline-flex items-center gap-1.5 rounded-md bg-blue-700 dark:bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
             >
               <Plus className="h-3.5 w-3.5" />
               Novo Lançamento
@@ -270,32 +270,32 @@ export function FinanceiroSection({
       </div>
 
       {subTab === 'lancamentos' ? (
-        <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90">
-          <div className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 px-4 py-2 text-[11px] text-slate-500 dark:text-zinc-400">
+        <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+          <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
             Planilha financeira editável: vincule lançamentos e repasses diretamente a proprietários, motoristas e veículos.
           </div>
           <div className="overflow-x-auto">
             <table className="w-full border-collapse text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950/80 text-[11px] font-semibold text-slate-600 dark:text-zinc-400">
-                  <th className="px-3 py-2.5">Descrição</th>
-                  <th className="px-3 py-2.5">Tipo</th>
-                  <th className="px-3 py-2.5">Categoria</th>
-                  <th className="px-3 py-2.5">Proprietário</th>
-                  <th className="px-3 py-2.5">Motorista</th>
-                  <th className="px-3 py-2.5">Veículo</th>
-                  <th className="px-3 py-2.5">Vencimento</th>
-                  <th className="px-3 py-2.5">Valor (R$)</th>
-                  <th className="px-3 py-2.5">Status</th>
-                  <th className="px-3 py-2.5 text-right">Ações</th>
+                <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
+                  <th className="px-3.5 py-3">Descrição</th>
+                  <th className="px-3.5 py-3">Tipo</th>
+                  <th className="px-3.5 py-3">Categoria</th>
+                  <th className="px-3.5 py-3">Proprietário</th>
+                  <th className="px-3.5 py-3">Motorista</th>
+                  <th className="px-3.5 py-3">Veículo</th>
+                  <th className="px-3.5 py-3">Vencimento</th>
+                  <th className="px-3.5 py-3">Valor (R$)</th>
+                  <th className="px-3.5 py-3">Status</th>
+                  <th className="px-3.5 py-3 text-right">Ações</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-zinc-800">
+              <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                 {filteredLancamentos.length === 0 ? (
                   <tr>
                     <td
                       colSpan={10}
-                      className="px-4 py-10 text-center text-xs text-slate-500 dark:text-zinc-400"
+                      className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                     >
                       Nenhum lançamento financeiro registrado ainda. Clique em "Novo Lançamento" para iniciar.
                     </td>
@@ -304,9 +304,9 @@ export function FinanceiroSection({
                   filteredLancamentos.map((l) => (
                     <tr
                       key={l.id}
-                      className="transition-colors hover:bg-slate-50/80 dark:hover:bg-zinc-800/40"
+                      className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                     >
-                      <td className="px-2 py-1.5 min-w-[180px]">
+                      <td className="px-2.5 py-2 min-w-[180px]">
                         <EditableCell
                           value={l.descricao}
                           onSave={async (val) => {
@@ -314,7 +314,7 @@ export function FinanceiroSection({
                           }}
                         />
                       </td>
-                      <td className="px-2 py-1.5 min-w-[100px]">
+                      <td className="px-2.5 py-2 min-w-[100px]">
                         <select
                           value={l.tipo}
                           onChange={async (e) => {
@@ -331,7 +331,7 @@ export function FinanceiroSection({
                           ))}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5 min-w-[140px]">
+                      <td className="px-2.5 py-2 min-w-[140px]">
                         <select
                           value={l.categoria}
                           onChange={async (e) => {
@@ -349,7 +349,7 @@ export function FinanceiroSection({
                           )}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5 min-w-[145px]">
+                      <td className="px-2.5 py-2 min-w-[145px]">
                         <select
                           value={l.proprietarioId}
                           onChange={async (e) => {
@@ -367,7 +367,7 @@ export function FinanceiroSection({
                           ))}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5 min-w-[140px]">
+                      <td className="px-2.5 py-2 min-w-[140px]">
                         <select
                           value={l.motoristaId}
                           onChange={async (e) => {
@@ -385,7 +385,7 @@ export function FinanceiroSection({
                           ))}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5 min-w-[115px]">
+                      <td className="px-2.5 py-2 min-w-[115px]">
                         <select
                           value={l.veiculoId}
                           onChange={async (e) => {
@@ -403,7 +403,7 @@ export function FinanceiroSection({
                           ))}
                         </select>
                       </td>
-                      <td className="px-2 py-1.5 min-w-[115px]">
+                      <td className="px-2.5 py-2 min-w-[115px]">
                         <EditableCell
                           value={l.dataVencimento}
                           type="date"
@@ -417,7 +417,7 @@ export function FinanceiroSection({
                           }}
                         />
                       </td>
-                      <td className="px-2 py-1.5 min-w-[115px]">
+                      <td className="px-2.5 py-2 min-w-[115px]">
                         <EditableCell
                           value={String(l.valor)}
                           mono
@@ -431,7 +431,7 @@ export function FinanceiroSection({
                           }}
                         />
                       </td>
-                      <td className="px-2 py-1.5 min-w-[115px]">
+                      <td className="px-2.5 py-2 min-w-[115px]">
                         <select
                           value={l.status}
                           onChange={async (e) => {
@@ -450,14 +450,14 @@ export function FinanceiroSection({
                           )}
                         </select>
                       </td>
-                      <td className="px-3 py-1.5 text-right">
+                      <td className="px-3.5 py-2 text-right">
                         <button
                           type="button"
                           onClick={async () => {
                             await deleteLancamentoFinanceiro(l.id);
                             onToast('success', 'Lançamento financeiro removido.');
                           }}
-                          className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                          className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                           title="Excluir lançamento"
                           aria-label={`Excluir lançamento ${l.descricao}`}
                         >
@@ -474,17 +474,17 @@ export function FinanceiroSection({
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Nova Categoria Form */}
-          <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 p-5">
-            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-zinc-100">
+          <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-slate-900 dark:text-white">
               <FolderPlus className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               Criar Nova Categoria
             </h3>
-            <p className="mt-1 text-xs text-slate-500 dark:text-zinc-400">
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
               Adicione categorias personalizadas para classificar os lançamentos financeiros da transportadora.
             </p>
             <form onSubmit={handleCreateCategory} className="mt-4 space-y-3">
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
                   Nome da Categoria *
                 </label>
                 <input
@@ -493,17 +493,17 @@ export function FinanceiroSection({
                   value={catNome}
                   onChange={(e) => setCatNome(e.target.value)}
                   placeholder="Ex.: Pedágio / Tag, Seguro Frota..."
-                  className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
                   Tipo Padrão
                 </label>
                 <select
                   value={catTipo}
                   onChange={(e) => setCatTipo(e.target.value as TipoLancamento)}
-                  className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
                 >
                   <option value="receita">Receita</option>
                   <option value="despesa">Despesa</option>
@@ -511,7 +511,7 @@ export function FinanceiroSection({
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-zinc-300">
+                <label className="mb-1 block text-xs font-medium text-slate-700 dark:text-slate-300">
                   Descrição
                 </label>
                 <input
@@ -519,13 +519,13 @@ export function FinanceiroSection({
                   value={catDesc}
                   onChange={(e) => setCatDesc(e.target.value)}
                   placeholder="Opcional"
-                  className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-xs text-slate-900 dark:text-zinc-100 focus:border-blue-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-2 text-xs text-slate-900 dark:text-slate-100 focus:border-blue-500 focus:outline-none"
                 />
               </div>
               <button
                 type="submit"
                 disabled={savingCat || !catNome.trim()}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-blue-700 dark:bg-blue-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500 disabled:opacity-50"
+                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-500 disabled:opacity-50"
               >
                 <Plus className="h-3.5 w-3.5" />
                 {savingCat ? 'Criando...' : 'Adicionar Categoria'}
@@ -534,16 +534,16 @@ export function FinanceiroSection({
           </div>
 
           {/* Lista de Categorias */}
-          <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/90 lg:col-span-2">
-            <div className="border-b border-slate-200 dark:border-zinc-800 px-5 py-3.5">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-zinc-100">
+          <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] lg:col-span-2">
+            <div className="border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-4">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
                 Categorias Cadastradas
               </h3>
-              <p className="text-xs text-slate-500 dark:text-zinc-400">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
                 Categorias padrão da transportadora e personalizadas criadas pela equipe
               </p>
             </div>
-            <div className="divide-y divide-slate-200 dark:divide-zinc-800">
+            <div className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
               {categoriasFinanceiras.map((c) => (
                 <div
                   key={c.id}
@@ -552,15 +552,15 @@ export function FinanceiroSection({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <Tag className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400 shrink-0" />
-                      <span className="font-semibold text-slate-900 dark:text-zinc-100">
+                      <span className="font-semibold text-slate-900 dark:text-white">
                         {c.nome}
                       </span>
-                      <span className="font-mono text-[10px] uppercase text-slate-500 dark:text-zinc-400">
-                        {TIPO_LANCAMENTO_LABELS[c.tipoPadrao]} · Personalizada
+                      <span className="font-mono text-[10px] text-slate-500 dark:text-slate-400">
+                        · {TIPO_LANCAMENTO_LABELS[c.tipoPadrao]} · Personalizada
                       </span>
                     </div>
                     {c.descricao && (
-                      <p className="mt-0.5 text-slate-500 dark:text-zinc-400">{c.descricao}</p>
+                      <p className="mt-0.5 text-slate-500 dark:text-slate-400">{c.descricao}</p>
                     )}
                   </div>
                   <button
@@ -569,7 +569,7 @@ export function FinanceiroSection({
                       await deleteCategoriaFinanceira(c.id);
                       onToast('success', `Categoria "${c.nome}" removida.`);
                     }}
-                    className="rounded p-1.5 text-slate-400 dark:text-zinc-500 hover:bg-red-50 dark:hover:bg-red-950/60 hover:text-red-700 dark:hover:text-red-400"
+                    className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                     title="Excluir categoria"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -584,15 +584,15 @@ export function FinanceiroSection({
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
-                      <Tag className="h-3.5 w-3.5 text-slate-400 dark:text-zinc-500 shrink-0" />
-                      <span className="font-medium text-slate-800 dark:text-zinc-200">
+                      <Tag className="h-3.5 w-3.5 text-slate-400 dark:text-slate-500 shrink-0" />
+                      <span className="font-medium text-slate-800 dark:text-slate-200">
                         {defCat.nome}
                       </span>
-                      <span className="font-mono text-[10px] uppercase text-slate-400 dark:text-zinc-500">
-                        {TIPO_LANCAMENTO_LABELS[defCat.tipoPadrao]} · Padrão
+                      <span className="font-mono text-[10px] text-slate-400 dark:text-slate-500">
+                        · {TIPO_LANCAMENTO_LABELS[defCat.tipoPadrao]} · Padrão
                       </span>
                     </div>
-                    <p className="mt-0.5 text-slate-500 dark:text-zinc-400">{defCat.descricao}</p>
+                    <p className="mt-0.5 text-slate-500 dark:text-slate-400">{defCat.descricao}</p>
                   </div>
                 </div>
               ))}

@@ -275,6 +275,7 @@ export async function createMotorista(
     categoriaCnh: clip(input.categoriaCnh, 10).toUpperCase(),
     validadeCnh: clip(input.validadeCnh, 20),
     telefone: clip(input.telefone, 40),
+    placa: clip(input.placa, 16).toUpperCase(),
     proprietarioId: clip(input.proprietarioId, 128),
     situacaoCadastral: input.situacaoCadastral,
     observacoes: clip(input.observacoes, 500),
@@ -306,6 +307,7 @@ export async function updateMotorista(
       | 'categoriaCnh'
       | 'validadeCnh'
       | 'telefone'
+      | 'placa'
       | 'proprietarioId'
       | 'situacaoCadastral'
       | 'observacoes'
@@ -328,6 +330,10 @@ export async function updateMotorista(
         : current.categoriaCnh,
     validadeCnh: patch.validadeCnh !== undefined ? clip(patch.validadeCnh, 20) : current.validadeCnh,
     telefone: patch.telefone !== undefined ? clip(patch.telefone, 40) : current.telefone,
+    placa:
+      patch.placa !== undefined
+        ? clip(patch.placa, 16).toUpperCase()
+        : (current.placa || ''),
     proprietarioId:
       patch.proprietarioId !== undefined ? clip(patch.proprietarioId, 128) : current.proprietarioId,
     observacoes: patch.observacoes !== undefined ? clip(patch.observacoes, 500) : current.observacoes || '',
@@ -342,6 +348,7 @@ export async function updateMotorista(
       categoriaCnh: merged.categoriaCnh,
       validadeCnh: merged.validadeCnh,
       telefone: merged.telefone,
+      placa: merged.placa || '',
       proprietarioId: merged.proprietarioId,
       situacaoCadastral: merged.situacaoCadastral,
       observacoes: merged.observacoes || '',

@@ -18,13 +18,42 @@
 
   body {
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4 {
     font-family: var(--font-display);
+    text-wrap: balance;
+  }
+
+  button,
+  a,
+  select,
+  input,
+  textarea {
+    transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
   }
 }
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
+}
+
+/* Refined scrollbars for dense fleet tables */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.35) transparent;
+}
+
+html.dark * {
+  scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

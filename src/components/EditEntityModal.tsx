@@ -28,15 +28,16 @@ interface EditEntityModalProps {
   entity: EditableEntity;
   proprietarios: Proprietario[];
   motoristas: Motorista[];
+  veiculos?: Veiculo[];
   onClose: () => void;
   onSaved: (message: string) => void;
   onRequestDelete: (entity: EditableEntity) => void;
 }
 
 const inputCls =
-  'w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-950 px-3 py-2 text-sm text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:border-blue-600 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
+  'w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-600 dark:focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20';
 
-const labelCls = 'mb-1 block text-xs font-medium text-slate-700 dark:text-zinc-300';
+const labelCls = 'mb-1.5 block text-xs font-medium text-slate-700 dark:text-slate-300';
 
 const SITUACAO_KEYS: SituacaoCadastral[] = [
   'aprovado',
@@ -49,6 +50,7 @@ export function EditEntityModal({
   entity,
   proprietarios,
   motoristas,
+  veiculos = [],
   onClose,
   onSaved,
   onRequestDelete,
@@ -71,6 +73,11 @@ export function EditEntityModal({
   const [motCategoria, setMotCategoria] = useState(initMot?.categoriaCnh ?? '');
   const [motValidade, setMotValidade] = useState(initMot?.validadeCnh ?? '');
   const [motTelefone, setMotTelefone] = useState(initMot?.telefone ?? '');
+  const [motPlaca, setMotPlaca] = useState(() => {
+    if (!initMot) return '';
+    if (initMot.placa) return initMot.placa;
+    return veiculos.find((v) => v.motoristaId === initMot.id)?.placa ?? '';
+  });
   const [motPropId, setMotPropId] = useState(
     initMot && propIdsSet.has(initMot.proprietarioId) ? initMot.proprietarioId : ''
   );
@@ -170,6 +177,7 @@ export function EditEntityModal({
           categoriaCnh: motCategoria,
           validadeCnh: motValidade,
           telefone: motTelefone,
+          placa: motPlaca,
           proprietarioId: safePropId,
           situacaoCadastral: situacao,
           observacoes,
@@ -241,16 +249,16 @@ export function EditEntityModal({
   const crlvStatus = entity.type === 'veiculo' ? evaluateDateStatus(veiValidadeCrlv) : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-[2px]">
-      <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900 dark:text-zinc-100">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+      <div className="flex max-h-[92vh] w-full max-w-xl flex-col rounded-xl border border-slate-200/90 dark:border-white/[0.09] bg-white dark:bg-[#0F1520] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-6 py-4">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-white">
             {titles[entity.type]}
           </h2>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-slate-400 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-slate-700 dark:hover:text-zinc-100"
+            className="rounded-lg p-1.5 text-slate-400 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-white"
             aria-label="Fechar janela"
           >
             <X className="h-4 w-4" />
@@ -259,15 +267,15 @@ export function EditEntityModal({
 
         <form onSubmit={handleSubmit} className="flex-1 space-y-4 overflow-y-auto p-6">
           {error && (
-            <div className="rounded border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3 py-2 text-xs text-red-700 dark:text-red-300">
+            <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
               {error}
             </div>
           )}
 
           {/* Situação Cadastral Highlighted Block */}
-          <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 p-3.5 space-y-2.5">
+          <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/80 dark:bg-[#0B0F17] p-4 space-y-2.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="text-xs font-semibold text-slate-800 dark:text-zinc-200">
+              <label className="text-xs font-semibold text-slate-800 dark:text-white">
                 Situação Cadastral / Status
               </label>
               {entity.type === 'motorista' && (
@@ -298,17 +306,17 @@ export function EditEntityModal({
                     : st === 'documentacao_vencida'
                       ? 'border-red-600 bg-red-600/15 text-red-700 dark:text-red-300'
                       : st === 'pendente'
-                        ? 'border-amber-600 bg-amber-600/15 text-amber-700 dark:text-amber-300'
+                        ? 'border-slate-500 dark:border-white/80 bg-slate-200/70 dark:bg-white/10 text-slate-900 dark:text-white'
                         : 'border-blue-600 bg-blue-600/15 text-blue-700 dark:text-blue-300';
                 return (
                   <button
                     key={st}
                     type="button"
                     onClick={() => setSituacao(st)}
-                    className={`rounded-md border px-2 py-1.5 text-[11px] font-medium transition-colors text-center ${
+                    className={`rounded-lg border px-2.5 py-2 text-[11px] font-medium transition-colors text-center ${
                       active
                         ? activeTone
-                        : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'
+                        : 'border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
                     }`}
                   >
                     {SITUACAO_LABELS[st]}
@@ -373,7 +381,7 @@ export function EditEntityModal({
                   </p>
                 )}
                 {cnhStatus === 'a_vencer' && (
-                  <p className="mt-1 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                  <p className="mt-1 text-[11px] font-medium text-slate-700 dark:text-white">
                     Atenção: CNH vence nos próximos 30 dias.
                   </p>
                 )}
@@ -389,6 +397,24 @@ export function EditEntityModal({
                 />
               </div>
               <div>
+                <label className={labelCls}>Placa do Veículo</label>
+                <input
+                  type="text"
+                  list="edit-mot-placas"
+                  value={motPlaca}
+                  onChange={(e) => setMotPlaca(e.target.value.toUpperCase())}
+                  placeholder="ABC1D23 (opcional)"
+                  className={`${inputCls} font-mono uppercase`}
+                />
+                <datalist id="edit-mot-placas">
+                  {veiculos.map((v) => (
+                    <option key={v.id} value={v.placa}>
+                      {v.modelo ? `${v.placa} · ${v.modelo}` : v.placa}
+                    </option>
+                  ))}
+                </datalist>
+              </div>
+              <div className="sm:col-span-2">
                 <label className={labelCls}>Proprietário Vinculado</label>
                 <select
                   value={motPropId}
@@ -548,31 +574,31 @@ export function EditEntityModal({
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 dark:border-zinc-800 bg-slate-50/70 dark:bg-zinc-950/60 p-3.5">
+              <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-50/80 dark:bg-[#0B0F17] p-4">
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-zinc-200">
+                  <label className="flex items-center gap-1.5 text-xs font-semibold text-slate-800 dark:text-white">
                     <Users className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
                     Motoristas Vinculados ({propSelectedMotIds.length})
                   </label>
                 </div>
 
                 {motoristas.length === 0 ? (
-                  <p className="text-xs text-slate-500 dark:text-zinc-400">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Nenhum motorista cadastrado.
                   </p>
                 ) : (
                   <div className="space-y-2">
                     <div className="relative">
-                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+                      <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
                       <input
                         type="search"
                         value={motPickerSearch}
                         onChange={(e) => setMotPickerSearch(e.target.value)}
                         placeholder="Filtrar motorista cadastrado por nome, CPF ou CNH..."
-                        className="w-full rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 py-1.5 pl-8 pr-2.5 text-xs text-slate-900 dark:text-zinc-100 placeholder:text-slate-400 dark:placeholder:text-zinc-500 focus:border-blue-500 focus:outline-none"
+                        className="w-full rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] py-1.5 pl-8 pr-2.5 text-xs text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:border-blue-500 focus:outline-none"
                       />
                     </div>
-                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-1.5">
+                    <div className="max-h-36 space-y-1 overflow-y-auto rounded-lg border border-slate-200 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-1.5">
                       {filteredMotoristasForPicker.map((m) => {
                         const checked = propSelectedMotIds.includes(m.id);
                         const otherOwner =
@@ -587,12 +613,12 @@ export function EditEntityModal({
                             className={`flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-xs transition-colors ${
                               checked
                                 ? 'bg-blue-50 dark:bg-blue-950/50 text-blue-900 dark:text-blue-100'
-                                : 'text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800/70'
+                                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.04]'
                             }`}
                           >
                             <div className="min-w-0">
                               <p className="truncate font-medium">{m.nomeCompleto}</p>
-                              <p className="truncate font-mono text-[10px] text-slate-500 dark:text-zinc-400">
+                              <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">
                                 CPF: {m.cpf || 'Pendente'} · CNH: {m.cnh || 'Pendente'}
                                 {otherOwner ? ` · Atual: ${otherOwner}` : ''}
                               </p>
@@ -601,7 +627,7 @@ export function EditEntityModal({
                               className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                                 checked
                                   ? 'border-blue-600 bg-blue-600 text-white'
-                                  : 'border-slate-300 dark:border-zinc-600'
+                                  : 'border-slate-300 dark:border-slate-600'
                               }`}
                             >
                               {checked && <Check className="h-3 w-3" />}
@@ -627,12 +653,12 @@ export function EditEntityModal({
             />
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-zinc-800 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200/80 dark:border-white/[0.07] pt-4">
             <button
               type="button"
               disabled={submitting}
               onClick={() => onRequestDelete(entity)}
-              className="inline-flex items-center gap-1.5 rounded-md border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3 py-2 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/70 disabled:opacity-50 whitespace-nowrap"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/40 px-3.5 py-2 text-xs font-medium text-red-700 dark:text-red-300 hover:bg-red-100 dark:hover:bg-red-950/70 disabled:opacity-50 whitespace-nowrap"
             >
               <Trash2 className="h-3.5 w-3.5" />
               Excluir Cadastro
@@ -642,14 +668,14 @@ export function EditEntityModal({
               <button
                 type="button"
                 onClick={onClose}
-                className="rounded-md border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-4 py-2 text-xs font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 whitespace-nowrap"
+                className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] whitespace-nowrap"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
                 disabled={submitting}
-                className="rounded-md bg-blue-700 dark:bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-800 dark:hover:bg-blue-500 disabled:opacity-50 whitespace-nowrap"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white shadow-xs hover:bg-blue-500 disabled:opacity-50 whitespace-nowrap"
               >
                 {submitting ? 'Salvando...' : 'Salvar Alterações'}
               </button>

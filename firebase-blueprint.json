@@ -91,6 +91,11 @@
           "description": "Telefone do motorista (vazio se pendente).",
           "maxLength": 40
         },
+        "placa": {
+          "type": "string",
+          "description": "Placa do veículo associado ao motorista (opcional).",
+          "maxLength": 16
+        },
         "proprietarioId": {
           "type": "string",
           "description": "ID do proprietário vinculado ou string vazia.",
