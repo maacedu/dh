@@ -17,6 +17,7 @@ import {
 } from './compliance';
 import type {
   CategoriaFinanceira,
+  DiaTrabalhado,
   Documento,
   Frete,
   LancamentoFinanceiro,
@@ -55,6 +56,7 @@ export function subscribeFleetData(
     onFinanceiro?: (items: LancamentoFinanceiro[]) => void;
     onCategoriasFinanceiras?: (items: CategoriaFinanceira[]) => void;
     onFretes?: (items: Frete[]) => void;
+    onDiasTrabalhados?: (items: DiaTrabalhado[]) => void;
     onError: (err: Error) => void;
   }
 ): Unsubscribe {
@@ -85,6 +87,10 @@ export function subscribeFleetData(
   const freteQuery = isAdminUser
     ? collection(db, 'fretes')
     : query(collection(db, 'fretes'), where('ownerUid', '==', uid));
+
+  const diasQuery = isAdminUser
+    ? collection(db, 'dias_trabalhados')
+    : query(collection(db, 'dias_trabalhados'), where('ownerUid', '==', uid));
 
   const unsub1 = onSnapshot(
     propQuery,
@@ -197,6 +203,22 @@ export function subscribeFleetData(
     }
   );
 
+  const unsub8 = onSnapshot(
+    diasQuery,
+    (snap) => {
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DiaTrabalhado);
+      list.sort((a, b) => (b.data || '').localeCompare(a.data || ''));
+      callbacks.onDiasTrabalhados?.(list);
+    },
+    (error) => {
+      try {
+        handleFirestoreError(error, OperationType.LIST, 'dias_trabalhados');
+      } catch (e) {
+        callbacks.onError(e as Error);
+      }
+    }
+  );
+
   return () => {
     unsub1();
     unsub2();
@@ -205,6 +227,7 @@ export function subscribeFleetData(
     unsub5();
     unsub6();
     unsub7();
+    unsub8();
   };
 }
 
@@ -380,7 +403,7 @@ export async function createVeiculo(
     : '';
   const payload = {
     ownerUid: uid,
-    placa: clip(input.placa, 16).toUpperCase() || 'PENDENTE',
+    placa: clip(input.placa, 16).toUpperCase() || 'SEM PLACA',
     modelo: clip(input.modelo, 120),
     marca: clip(input.marca, 80),
     ano: clip(input.ano, 12),
@@ -748,6 +771,81 @@ export async function deleteFrete(id: string): Promise<void> {
   const path = `fretes/${id}`;
   try {
     await deleteDoc(doc(db, 'fretes', id));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, path);
+  }
+}
+
+export async function createDiaTrabalhado(
+  uid: string,
+  input: Omit<DiaTrabalhado, 'id' | 'ownerUid' | 'createdAt' | 'updatedAt'>
+): Promise<string> {
+  const id = generateDocId();
+  const path = `dias_trabalhados/${id}`;
+  try {
+    await setDoc(doc(db, 'dias_trabalhados', id), {
+      ownerUid: uid,
+      motoristaId: clip(input.motoristaId, 128),
+      proprietarioId: clip(input.proprietarioId, 128),
+      veiculoId: clip(input.veiculoId, 128),
+      placa: clip(input.placa, 16).toUpperCase(),
+      data: clip(input.data, 20),
+      rota: clip(input.rota, 160),
+      turno: input.turno,
+      valorDiaria: clampMoney(input.valorDiaria),
+      status: input.status,
+      observacoes: clip(input.observacoes, 500),
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return id;
+  } catch (error) {
+    handleFirestoreError(error, OperationType.CREATE, path);
+  }
+}
+
+export async function updateDiaTrabalhado(
+  id: string,
+  patch: Partial<
+    Pick<
+      DiaTrabalhado,
+      | 'motoristaId'
+      | 'proprietarioId'
+      | 'veiculoId'
+      | 'placa'
+      | 'data'
+      | 'rota'
+      | 'turno'
+      | 'valorDiaria'
+      | 'status'
+      | 'observacoes'
+    >
+  >
+): Promise<void> {
+  const path = `dias_trabalhados/${id}`;
+  const clean: Record<string, unknown> = { updatedAt: serverTimestamp() };
+  if (patch.motoristaId !== undefined) clean.motoristaId = clip(patch.motoristaId, 128);
+  if (patch.proprietarioId !== undefined) clean.proprietarioId = clip(patch.proprietarioId, 128);
+  if (patch.veiculoId !== undefined) clean.veiculoId = clip(patch.veiculoId, 128);
+  if (patch.placa !== undefined) clean.placa = clip(patch.placa, 16).toUpperCase();
+  if (patch.data !== undefined) clean.data = clip(patch.data, 20);
+  if (patch.rota !== undefined) clean.rota = clip(patch.rota, 160);
+  if (patch.turno !== undefined) clean.turno = patch.turno;
+  if (patch.valorDiaria !== undefined) clean.valorDiaria = clampMoney(patch.valorDiaria);
+  if (patch.status !== undefined) clean.status = patch.status;
+  if (patch.observacoes !== undefined) clean.observacoes = clip(patch.observacoes, 500);
+
+  try {
+    await updateDoc(doc(db, 'dias_trabalhados', id), clean);
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, path);
+  }
+}
+
+export async function deleteDiaTrabalhado(id: string): Promise<void> {
+  const path = `dias_trabalhados/${id}`;
+  try {
+    await deleteDoc(doc(db, 'dias_trabalhados', id));
   } catch (error) {
     handleFirestoreError(error, OperationType.DELETE, path);
   }

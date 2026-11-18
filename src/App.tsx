@@ -2,12 +2,12 @@ import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   AlertTriangle,
   Building2,
+  CalendarDays,
   CheckCircle2,
   Download,
   Eye,
   EyeOff,
   FileCheck2,
-  FileWarning,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -36,16 +36,17 @@ import {
 } from 'firebase/auth';
 import { auth, firebaseProjectId, testFirestoreConnection } from './lib/firebase';
 import {
-  computeMotoristaPendingFields,
-  computeProprietarioPendingFields,
-  computeVeiculoPendingFields,
   evaluateDateStatus,
   exportFleetToExcel,
+  formatBrl,
   formatDatePtBr,
   generatePendencias,
+  getTodayIso,
   SITUACAO_LABELS,
+  STATUS_DIA_LABELS,
   suggestSituacaoMotorista,
   suggestSituacaoVeiculo,
+  TURNO_TRABALHO_LABELS,
 } from './lib/compliance';
 import {
   deleteDocumento,
@@ -60,6 +61,7 @@ import {
 } from './lib/fleetService';
 import type {
   CategoriaFinanceira,
+  DiaTrabalhado,
   Documento,
   Frete,
   LancamentoFinanceiro,
@@ -79,6 +81,7 @@ import { ConfirmDeleteModal } from './components/ConfirmDeleteModal';
 import { OwnerDetailDrawer } from './components/OwnerDetailDrawer';
 import { FinanceiroSection } from './components/FinanceiroSection';
 import { FretesSection } from './components/FretesSection';
+import { ScrollableTableCard } from './components/ScrollableTableCard';
 
 type NavSection =
   | 'painel'
@@ -97,7 +100,7 @@ const SITUACAO_OPTIONS: Array<{ value: 'todos' | SituacaoCadastral; label: strin
   { value: 'todos', label: 'Todos' },
   { value: 'aprovado', label: 'Aprovado' },
   { value: 'em_analise', label: 'Em Análise' },
-  { value: 'pendente', label: 'Pendente' },
+  { value: 'pendente', label: 'Em Revisão' },
   { value: 'documentacao_vencida', label: 'Documentação Vencida' },
 ];
 
@@ -182,6 +185,7 @@ export default function App() {
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
   const [categoriasFinanceiras, setCategoriasFinanceiras] = useState<CategoriaFinanceira[]>([]);
   const [fretes, setFretes] = useState<Frete[]>([]);
+  const [diasTrabalhados, setDiasTrabalhados] = useState<DiaTrabalhado[]>([]);
 
   const [activeSection, setActiveSection] = useState<NavSection>('painel');
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
@@ -189,7 +193,7 @@ export default function App() {
   const [situacaoFilter, setSituacaoFilter] = useState<'todos' | SituacaoCadastral>('todos');
   const [tipoVeiculoFilter, setTipoVeiculoFilter] = useState<'todos' | TipoVeiculo>('todos');
   const [proprietarioFilter, setProprietarioFilter] = useState<string>('todos');
-  const [pendenciaTab, setPendenciaTab] = useState<'pendencias' | 'documentos'>('pendencias');
+  const [pendenciaTab, setPendenciaTab] = useState<'documentos' | 'vencimentos'>('documentos');
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [manualModalMode, setManualModalMode] = useState<ManualModalMode | null>(null);
@@ -238,6 +242,7 @@ export default function App() {
       setLancamentos([]);
       setCategoriasFinanceiras([]);
       setFretes([]);
+      setDiasTrabalhados([]);
       setLoadingData(false);
       return;
     }
@@ -272,6 +277,9 @@ export default function App() {
       },
       onFretes: (items) => {
         setFretes(items);
+      },
+      onDiasTrabalhados: (items) => {
+        setDiasTrabalhados(items);
       },
       onError: (err) => {
         setDataError(err.message);
@@ -505,25 +513,37 @@ export default function App() {
   // Dashboard Metrics
   const kpis = useMemo(() => {
     const motAprovados = motoristas.filter((m) => m.situacaoCadastral === 'aprovado').length;
+    const motEmAnalise = motoristas.filter(
+      (m) => m.situacaoCadastral === 'em_analise' || m.situacaoCadastral === 'pendente'
+    ).length;
     const veiDisponiveis = veiculos.filter(
       (v) =>
         v.situacaoCadastral === 'aprovado' &&
         evaluateDateStatus(v.validadeCrlv) !== 'vencido'
     ).length;
+    const currentMonth = getTodayIso().slice(0, 7);
+    const diasMes = diasTrabalhados.filter((d) => d.data.startsWith(currentMonth));
+    const diasTrabalhadosMes = diasMes.filter((d) => d.status === 'trabalhado').length;
+    const motoristasAtivosMes = new Set(
+      diasMes.filter((d) => d.status === 'trabalhado').map((d) => d.motoristaId)
+    ).size;
+    const totalDiariasMes = diasMes.reduce((acc, d) => acc + (d.valorDiaria || 0), 0);
     const vencidosCount = pendencias.filter((p) => p.categoria === 'vencido').length;
-    const faltantesCount = pendencias.filter((p) => p.categoria === 'faltante').length;
 
     return {
       totalMotoristas: motoristas.length,
       motAprovados,
+      motEmAnalise,
       totalVeiculos: veiculos.length,
       veiDisponiveis,
-      totalPendencias: pendencias.length,
+      diasTrabalhadosMes,
+      motoristasAtivosMes,
+      totalDiariasMes,
       vencidosCount,
-      faltantesCount,
+      totalVencimentos: pendencias.length,
       totalProprietarios: proprietarios.length,
     };
-  }, [motoristas, veiculos, proprietarios, pendencias]);
+  }, [motoristas, veiculos, proprietarios, pendencias, diasTrabalhados]);
 
   const selectedOwner = useMemo(
     () => proprietarios.find((p) => p.id === selectedOwnerId) || null,
@@ -671,7 +691,7 @@ export default function App() {
       id: 'documentos',
       label: 'Documentação',
       icon: FileCheck2,
-      count: pendencias.length > 0 ? pendencias.length : undefined,
+      count: documentos.length > 0 ? documentos.length : undefined,
     },
     {
       id: 'financeiro',
@@ -681,9 +701,14 @@ export default function App() {
     },
     {
       id: 'fretes',
-      label: 'Fretes & Rotas',
+      label: 'Rotas & Diárias',
       icon: Route,
-      count: fretes.length > 0 ? fretes.length : undefined,
+      count:
+        diasTrabalhados.length > 0
+          ? diasTrabalhados.length
+          : fretes.length > 0
+            ? fretes.length
+            : undefined,
     },
   ];
 
@@ -692,9 +717,9 @@ export default function App() {
     motoristas: 'Cadastro de Motoristas',
     veiculos: 'Cadastro de Veículos',
     proprietarios: 'Proprietários e Vínculos',
-    documentos: 'Documentação e Pendências',
+    documentos: 'Documentação e Vencimentos',
     financeiro: 'Financeiro e Categorias',
-    fretes: 'Fretes e Rotas Operacionais',
+    fretes: 'Rotas e Dias Trabalhados',
   };
 
   function handleExportExcel() {
@@ -705,7 +730,8 @@ export default function App() {
       documentos,
       pendencias,
       lancamentos,
-      fretes
+      fretes,
+      diasTrabalhados
     );
     showToast('success', 'Planilha Excel exportada com os cadastros atualizados.');
   }
@@ -847,11 +873,7 @@ export default function App() {
         {item.count !== undefined && (
           <span
             className={`font-mono text-[11px] tabular-nums ${
-              active
-                ? 'text-blue-100'
-                : item.id === 'documentos' && pendencias.length > 0
-                  ? 'font-semibold text-slate-900 dark:text-white'
-                  : 'text-slate-400 dark:text-slate-500'
+              active ? 'text-blue-100' : 'text-slate-400 dark:text-slate-500'
             }`}
           >
             {item.count}
@@ -1078,7 +1100,7 @@ export default function App() {
                     {loadingData ? '—' : kpis.totalMotoristas}
                   </p>
                   <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-                    {kpis.motAprovados} aprovados · {kpis.totalMotoristas - kpis.motAprovados} em revisão/pendentes
+                    {kpis.motAprovados} aprovados · {kpis.motEmAnalise} em análise
                   </p>
                 </button>
 
@@ -1109,37 +1131,22 @@ export default function App() {
 
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveSection('documentos');
-                    setPendenciaTab('pendencias');
-                  }}
-                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-slate-300 dark:hover:border-white/[0.18]"
+                  onClick={() => setActiveSection('fretes')}
+                  className="group rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5 text-left transition-colors hover:border-emerald-500/40 dark:hover:border-emerald-400/35"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      Pendências Documentais
+                      Dias Trabalhados (Mês)
                     </p>
-                    <span
-                      className={`flex h-8 w-8 items-center justify-center rounded-lg ${
-                        kpis.totalPendencias > 0
-                          ? 'bg-red-500/10 text-red-600 dark:text-red-400'
-                          : 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-                      }`}
-                    >
-                      <FileWarning className="h-4 w-4" />
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                      <CalendarDays className="h-4 w-4" />
                     </span>
                   </div>
-                  <p
-                    className={`mt-2 font-mono text-2xl font-semibold tabular-nums ${
-                      kpis.totalPendencias > 0
-                        ? 'text-red-700 dark:text-red-400'
-                        : 'text-emerald-700 dark:text-emerald-400'
-                    }`}
-                  >
-                    {loadingData ? '—' : kpis.totalPendencias}
+                  <p className="mt-2 font-mono text-2xl font-semibold text-emerald-700 dark:text-emerald-400 tabular-nums">
+                    {loadingData ? '—' : kpis.diasTrabalhadosMes}
                   </p>
                   <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
-                    {kpis.vencidosCount} vencidos · {kpis.faltantesCount} documentos faltantes
+                    {kpis.motoristasAtivosMes} motorista(s) · {formatBrl(kpis.totalDiariasMes)}
                   </p>
                 </button>
 
@@ -1150,7 +1157,7 @@ export default function App() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                      Proprietários Vinculados
+                      Proprietários e Arquivos
                     </p>
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-500/10 text-slate-600 dark:text-slate-300">
                       <Building2 className="h-4 w-4" />
@@ -1159,121 +1166,163 @@ export default function App() {
                   <p className="mt-2 font-mono text-2xl font-semibold text-slate-900 dark:text-white tabular-nums">
                     {loadingData ? '—' : kpis.totalProprietarios}
                   </p>
-                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-                    {documentos.length} documentos arquivados no sistema
+                  <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400 tabular-nums">
+                    {documentos.length} documento(s) · {kpis.totalVencimentos} vencimento(s)
                   </p>
                 </button>
               </div>
 
               {/* Operational Split */}
               <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-                {/* Actionable Pendencies */}
-                <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] xl:col-span-2">
-                  <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-4">
-                    <div>
-                      <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                        Alertas de Documentação e Pendências
-                      </h2>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Documentos vencidos, arquivos faltantes ou campos aguardando preenchimento manual
-                      </p>
+                {/* Left Column: Recent Worked Days + Expiration Monitor */}
+                <div className="space-y-6 xl:col-span-2">
+                  <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+                    <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-4">
+                      <div>
+                        <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                          Rotas e Dias Trabalhados Recentes
+                        </h2>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          Acompanhamento direto da escala diária dos motoristas da frota
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection('fretes')}
+                        className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
+                      >
+                        Abrir Rotas
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveSection('documentos');
-                        setPendenciaTab('pendencias');
-                      }}
-                      className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
-                    >
-                      Ver todas
-                    </button>
-                  </div>
 
-                  {loadingData ? (
-                    <div className="p-6 text-xs text-slate-500 dark:text-slate-400">
-                      Carregando registros...
-                    </div>
-                  ) : filteredPendencias.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center px-6 py-12 text-center">
-                      <CheckCircle2 className="mb-2.5 h-7 w-7 text-emerald-600 dark:text-emerald-400" />
-                      <p className="text-sm font-medium text-slate-800 dark:text-white">
-                        {motoristas.length === 0 && veiculos.length === 0
-                          ? 'Nenhum cadastro registrado ainda'
-                          : 'Nenhuma pendência documental encontrada'}
-                      </p>
-                      <p className="mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
-                        {motoristas.length === 0 && veiculos.length === 0
-                          ? 'Envie uma CNH ou CRLV em PDF ou imagem para iniciar o cadastro automático da frota.'
-                          : 'Todos os motoristas, veículos e documentos cadastrados estão em dia.'}
-                      </p>
-                      {motoristas.length === 0 && veiculos.length === 0 && (
+                    {loadingData ? (
+                      <div className="p-6 text-xs text-slate-500 dark:text-slate-400">
+                        Carregando registros...
+                      </div>
+                    ) : diasTrabalhados.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+                        <CalendarDays className="mb-2.5 h-7 w-7 text-blue-600 dark:text-blue-400" />
+                        <p className="text-sm font-medium text-slate-800 dark:text-white">
+                          Nenhum dia trabalhado lançado ainda
+                        </p>
+                        <p className="mt-1 max-w-md text-xs text-slate-500 dark:text-slate-400">
+                          Acesse a aba Rotas & Diárias para registrar todos os dias trabalhados de cada motorista na folha mensal.
+                        </p>
                         <button
                           type="button"
-                          onClick={() => setUploadModalOpen(true)}
+                          onClick={() => setActiveSection('fretes')}
                           className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-500"
                         >
-                          <Upload className="h-3.5 w-3.5" />
-                          Enviar Primeiro Documento
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          Lançar Dias Trabalhados
                         </button>
-                      )}
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
-                      {filteredPendencias.slice(0, 8).map((pen) => (
-                        <div
-                          key={pen.id}
-                          className="flex items-center justify-between gap-4 px-5 py-3.5 text-xs transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
-                        >
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`font-semibold ${
-                                  pen.categoria === 'vencido'
-                                    ? 'text-red-700 dark:text-red-400'
-                                    : pen.categoria === 'faltante'
-                                      ? 'text-orange-700 dark:text-orange-400'
-                                      : pen.categoria === 'a_vencer'
-                                        ? 'text-slate-800 dark:text-white'
-                                        : 'text-slate-700 dark:text-slate-300'
-                                }`}
-                              >
-                                {pen.categoria === 'vencido'
-                                  ? 'Vencido'
-                                  : pen.categoria === 'faltante'
-                                    ? 'Doc. Faltante'
-                                    : pen.categoria === 'a_vencer'
-                                      ? 'A Vencer'
-                                      : 'Campo Pendente'}
-                              </span>
-                              <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
-                                ·
-                              </span>
-                              <span className="truncate font-medium text-slate-900 dark:text-white">
-                                {pen.entidadeTitulo}
-                              </span>
+                      </div>
+                    ) : (
+                      <div className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
+                        {diasTrabalhados.slice(0, 6).map((d) => {
+                          const driver = motMap.get(d.motoristaId);
+                          return (
+                            <div
+                              key={d.id}
+                              className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-xs transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-mono text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                                    {formatDatePtBr(d.data)}
+                                  </span>
+                                  <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
+                                    ·
+                                  </span>
+                                  <span className="truncate font-medium text-slate-900 dark:text-white">
+                                    {driver?.nomeCompleto || 'Motorista'}
+                                  </span>
+                                  {d.placa && (
+                                    <span className="rounded bg-slate-100 dark:bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-slate-700 dark:text-slate-300">
+                                      {d.placa}
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="mt-0.5 truncate text-slate-500 dark:text-slate-400">
+                                  {d.rota || 'Rota padrão'} · {TURNO_TRABALHO_LABELS[d.turno]}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <span className="font-mono font-medium text-slate-800 dark:text-slate-200 tabular-nums">
+                                  {d.valorDiaria ? formatBrl(d.valorDiaria) : '—'}
+                                </span>
+                                <span
+                                  className={`rounded-md px-2 py-0.5 text-[11px] font-medium ${
+                                    d.status === 'trabalhado'
+                                      ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                                      : d.status === 'falta'
+                                        ? 'bg-red-500/15 text-red-700 dark:text-red-300'
+                                        : 'bg-slate-200/80 dark:bg-white/[0.08] text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {STATUS_DIA_LABELS[d.status]}
+                                </span>
+                              </div>
                             </div>
-                            <p className="mt-0.5 truncate text-slate-600 dark:text-slate-400">
-                              {pen.descricao}
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveSection(
-                                pen.entidadeTipo === 'motorista'
-                                  ? 'motoristas'
-                                  : pen.entidadeTipo === 'veiculo'
-                                    ? 'veiculos'
-                                    : 'proprietarios'
-                              );
-                            }}
-                            className="shrink-0 rounded-lg border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06] whitespace-nowrap"
-                          >
-                            Corrigir
-                          </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {filteredPendencias.length > 0 && (
+                    <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
+                      <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-5 py-3.5">
+                        <div>
+                          <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
+                            Controle de Vencimentos (CNH / CRLV)
+                          </h2>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            Apenas documentos com data vencida ou vencimento nos próximos 30 dias
+                          </p>
                         </div>
-                      ))}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveSection('documentos');
+                            setPendenciaTab('vencimentos');
+                          }}
+                          className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+                        >
+                          Ver todos
+                        </button>
+                      </div>
+                      <div className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
+                        {filteredPendencias.slice(0, 5).map((pen) => (
+                          <div
+                            key={pen.id}
+                            className="flex items-center justify-between gap-4 px-5 py-3 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`font-semibold ${
+                                    pen.categoria === 'vencido'
+                                      ? 'text-red-700 dark:text-red-400'
+                                      : 'text-slate-800 dark:text-white'
+                                  }`}
+                                >
+                                  {pen.categoria === 'vencido' ? 'Vencido' : 'A Vencer'}
+                                </span>
+                                <span aria-hidden="true" className="text-slate-300 dark:text-slate-600">
+                                  ·
+                                </span>
+                                <span className="truncate font-medium text-slate-900 dark:text-white">
+                                  {pen.entidadeTitulo}
+                                </span>
+                              </div>
+                              <p className="mt-0.5 truncate text-slate-500 dark:text-slate-400">
+                                {pen.descricao}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1315,8 +1364,8 @@ export default function App() {
                         );
                       })}
                       <div className="flex items-center justify-between border-t border-slate-100 dark:border-white/[0.06] pt-3">
-                        <span className="font-medium text-slate-800 dark:text-white">
-                          Tipo Pendente
+                        <span className="font-medium text-slate-600 dark:text-slate-300">
+                          Sem categoria
                         </span>
                         <span className="font-mono tabular-nums text-slate-800 dark:text-white">
                           {veiculos.filter((v) => !v.tipoVeiculo).length}
@@ -1327,15 +1376,23 @@ export default function App() {
 
                   <div className="rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520] p-5">
                     <h2 className="text-sm font-semibold text-slate-900 dark:text-white">
-                      Ações Rápidas de Cadastro
+                      Ações Rápidas
                     </h2>
                     <div className="mt-3 grid grid-cols-1 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveSection('fretes')}
+                        className="flex items-center justify-between rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-2.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 transition-colors hover:bg-emerald-500/15"
+                      >
+                        <span>Lançar Dias Trabalhados (Rotas)</span>
+                        <CalendarDays className="h-3.5 w-3.5 shrink-0" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => setUploadModalOpen(true)}
                         className="flex items-center justify-between rounded-lg border border-blue-500/30 bg-blue-500/10 px-3.5 py-2.5 text-xs font-medium text-blue-700 dark:text-blue-300 transition-colors hover:bg-blue-500/15"
                       >
-                        <span>Enviar PDF ou Imagem (Extração Automática)</span>
+                        <span>Enviar PDF ou Imagem (Extração)</span>
                         <Upload className="h-3.5 w-3.5 shrink-0" />
                       </button>
                       <button
@@ -1343,7 +1400,7 @@ export default function App() {
                         onClick={() => setManualModalMode('motorista')}
                         className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
-                        <span>Cadastrar Motorista Manualmente</span>
+                        <span>Novo Motorista</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
                       </button>
                       <button
@@ -1351,7 +1408,7 @@ export default function App() {
                         onClick={() => setManualModalMode('veiculo')}
                         className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
-                        <span>Cadastrar Veículo Manualmente</span>
+                        <span>Novo Veículo</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
                       </button>
                       <button
@@ -1359,7 +1416,7 @@ export default function App() {
                         onClick={() => setManualModalMode('proprietario')}
                         className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-white/[0.08] bg-slate-50/70 dark:bg-[#0B0F17] px-3.5 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 transition-colors hover:bg-slate-100 dark:hover:bg-white/[0.05]"
                       >
-                        <span>Cadastrar Proprietário Manualmente</span>
+                        <span>Novo Proprietário</span>
                         <Plus className="h-3.5 w-3.5 shrink-0" />
                       </button>
                     </div>
@@ -1416,12 +1473,8 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-                  Planilha editável: clique em qualquer campo para editar diretamente. Motoristas aprovados ficam destacados em verde.
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs">
+              <ScrollableTableCard header="Planilha editável: clique em qualquer campo para editar diretamente. Motoristas aprovados ficam destacados em verde.">
+                <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                         <th className="px-3.5 py-3">Nome Completo</th>
@@ -1449,7 +1502,6 @@ export default function App() {
                       ) : (
                         filteredMotoristas.map((m) => {
                           const cnhExpiryStatus = evaluateDateStatus(m.validadeCnh);
-                          const missing = computeMotoristaPendingFields(m);
                           const isApproved = m.situacaoCadastral === 'aprovado';
                           const cellTone = isApproved ? 'emerald' : 'default';
                           const linkedVehiclePlate = motPlateByVehicleMap.get(m.id) || '';
@@ -1496,11 +1548,6 @@ export default function App() {
                                     );
                                   }}
                                 />
-                                {missing.length > 0 && (
-                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
-                                    Falta: {missing.join(', ')}
-                                  </span>
-                                )}
                                 {m.observacoes && (
                                   <span
                                     className={`block max-w-[220px] truncate px-2 text-[10px] ${
@@ -1595,8 +1642,7 @@ export default function App() {
                                   value={m.placa || linkedVehiclePlate}
                                   mono
                                   tone={cellTone}
-                                  requiredPending={false}
-                                  placeholder="Informar placa"
+                                  placeholder="Placa"
                                   onSave={async (val) => {
                                     await saveMotPatch(
                                       { placa: val.toUpperCase() },
@@ -1689,8 +1735,7 @@ export default function App() {
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
+              </ScrollableTableCard>
             </div>
           )}
 
@@ -1752,12 +1797,8 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-                  Planilha editável da frota: clique em qualquer célula para atualizar placa, modelo, marca, ano, RENAVAM, tipo (Van, HR, VUC, Médio) ou proprietário.
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs">
+              <ScrollableTableCard header="Planilha editável da frota: clique em qualquer célula para atualizar placa, modelo, marca, ano, RENAVAM, tipo (Van, HR, VUC, Médio) ou proprietário.">
+                <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                         <th className="px-3.5 py-3">Placa</th>
@@ -1786,7 +1827,6 @@ export default function App() {
                       ) : (
                         filteredVeiculos.map((v) => {
                           const crlvStatus = evaluateDateStatus(v.validadeCrlv);
-                          const missing = computeVeiculoPendingFields(v);
                           return (
                             <tr
                               key={v.id}
@@ -1800,11 +1840,6 @@ export default function App() {
                                     await updateVeiculo(v.id, v, { placa: val });
                                   }}
                                 />
-                                {missing.length > 0 && (
-                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
-                                    {missing.length} pend.
-                                  </span>
-                                )}
                               </td>
                               <td className="px-2.5 py-2 min-w-[110px]">
                                 <EditableCell
@@ -1848,13 +1883,9 @@ export default function App() {
                                       tipoVeiculo: e.target.value as TipoVeiculo,
                                     });
                                   }}
-                                  className={`w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none ${
-                                    !v.tipoVeiculo
-                                      ? 'font-medium text-slate-800 dark:text-white'
-                                      : 'text-slate-800 dark:text-slate-200'
-                                  }`}
+                                  className={inlineSelectCls}
                                 >
-                                  <option value="">Pendente</option>
+                                  <option value="">Sem categoria</option>
                                   <option value="Van">Van</option>
                                   <option value="HR">HR</option>
                                   <option value="VUC">VUC</option>
@@ -1869,13 +1900,9 @@ export default function App() {
                                       proprietarioId: e.target.value,
                                     });
                                   }}
-                                  className={`w-full rounded-md border border-transparent bg-transparent px-2 py-1 text-xs hover:border-slate-300 dark:hover:border-white/[0.12] hover:bg-white dark:hover:bg-[#0B0F17] focus:border-blue-500 focus:bg-white dark:focus:bg-[#0B0F17] focus:outline-none ${
-                                    !v.proprietarioId
-                                      ? 'font-medium text-slate-800 dark:text-white'
-                                      : 'text-slate-800 dark:text-slate-200'
-                                  }`}
+                                  className={inlineSelectCls}
                                 >
-                                  <option value="">Pendente</option>
+                                  <option value="">Sem vínculo</option>
                                   {proprietarios.map((p) => (
                                     <option key={p.id} value={p.id}>
                                       {p.nomeCompleto}
@@ -1985,8 +2012,7 @@ export default function App() {
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
+              </ScrollableTableCard>
             </div>
           )}
 
@@ -2021,12 +2047,8 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-                <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-                  Selecione um motorista cadastrado diretamente na linha do proprietário ou clique em Vínculos para administrar motoristas e veículos.
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full border-collapse text-left text-xs">
+              <ScrollableTableCard header="Selecione um motorista cadastrado diretamente na linha do proprietário ou clique em Vínculos para administrar motoristas e veículos.">
+                <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                         <th className="px-3.5 py-3">Nome Completo / Razão Social</th>
@@ -2055,7 +2077,6 @@ export default function App() {
                           const selectableMotoristas = motoristas.filter(
                             (m) => m.proprietarioId !== p.id
                           );
-                          const missing = computeProprietarioPendingFields(p);
                           return (
                             <tr
                               key={p.id}
@@ -2068,11 +2089,6 @@ export default function App() {
                                     await updateProprietario(p.id, { nomeCompleto: val });
                                   }}
                                 />
-                                {missing.length > 0 && (
-                                  <span className="block px-2 text-[10px] text-slate-700 dark:text-white">
-                                    Falta: {missing.join(', ')}
-                                  </span>
-                                )}
                               </td>
                               <td className="px-2.5 py-2 min-w-[140px]">
                                 <EditableCell
@@ -2238,27 +2254,15 @@ export default function App() {
                       )}
                     </tbody>
                   </table>
-                </div>
-              </div>
+              </ScrollableTableCard>
             </div>
           )}
 
-          {/* DOCUMENTACAO & PENDENCIAS */}
+          {/* DOCUMENTACAO & VENCIMENTOS */}
           {activeSection === 'documentos' && (
             <div className="space-y-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-1 rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-slate-100/90 dark:bg-white/[0.03] p-1">
-                  <button
-                    type="button"
-                    onClick={() => setPendenciaTab('pendencias')}
-                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
-                      pendenciaTab === 'pendencias'
-                        ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
-                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
-                    }`}
-                  >
-                    Pendências e Vencimentos ({filteredPendencias.length})
-                  </button>
                   <button
                     type="button"
                     onClick={() => setPendenciaTab('documentos')}
@@ -2269,6 +2273,17 @@ export default function App() {
                     }`}
                   >
                     Arquivos Enviados ({filteredDocumentos.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPendenciaTab('vencimentos')}
+                    className={`rounded-lg px-3.5 py-1.5 text-xs font-medium transition-colors whitespace-nowrap ${
+                      pendenciaTab === 'vencimentos'
+                        ? 'bg-white dark:bg-[#182234] text-slate-900 dark:text-white shadow-xs'
+                        : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+                    }`}
+                  >
+                    Controle de Vencimentos ({filteredPendencias.length})
                   </button>
                 </div>
 
@@ -2282,27 +2297,25 @@ export default function App() {
                 </button>
               </div>
 
-              {pendenciaTab === 'pendencias' ? (
-                <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-xs">
+              {pendenciaTab === 'vencimentos' ? (
+                <ScrollableTableCard header="Documentos com validade vencida ou próxima do vencimento.">
+                  <table className="w-full border-collapse text-left text-xs">
                       <thead>
                         <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                          <th className="px-4 py-3">Tipo de Alerta</th>
+                          <th className="px-4 py-3">Situação da Validade</th>
                           <th className="px-4 py-3">Cadastro</th>
                           <th className="px-4 py-3">Identificação</th>
-                          <th className="px-4 py-3">Detalhe da Pendência</th>
-                          <th className="px-4 py-3 text-right">Ação</th>
+                          <th className="px-4 py-3">Detalhe do Vencimento</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
                         {filteredPendencias.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={5}
+                              colSpan={4}
                               className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                             >
-                              Nenhuma pendência documental ativa.
+                              Nenhum documento vencido ou próximo do vencimento.
                             </td>
                           </tr>
                         ) : (
@@ -2314,21 +2327,11 @@ export default function App() {
                               <td className="px-4 py-3 font-medium whitespace-nowrap">
                                 {pen.categoria === 'vencido' ? (
                                   <span className="inline-flex items-center gap-1.5 text-red-700 dark:text-red-400">
-                                    <FileWarning className="h-3.5 w-3.5" />
                                     Vencido
                                   </span>
-                                ) : pen.categoria === 'faltante' ? (
-                                  <span className="inline-flex items-center gap-1.5 text-orange-700 dark:text-orange-400">
-                                    <AlertTriangle className="h-3.5 w-3.5" />
-                                    Doc. Faltante
-                                  </span>
-                                ) : pen.categoria === 'a_vencer' ? (
+                                ) : (
                                   <span className="text-slate-800 dark:text-white">
                                     A Vencer (30d)
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-700 dark:text-slate-300">
-                                    Campo Pendente
                                   </span>
                                 )}
                               </td>
@@ -2341,34 +2344,15 @@ export default function App() {
                               <td className="px-4 py-3 text-slate-600 dark:text-slate-400">
                                 {pen.descricao}
                               </td>
-                              <td className="px-4 py-3 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setActiveSection(
-                                      pen.entidadeTipo === 'motorista'
-                                        ? 'motoristas'
-                                        : pen.entidadeTipo === 'veiculo'
-                                          ? 'veiculos'
-                                          : 'proprietarios'
-                                    )
-                                  }
-                                  className="rounded-md border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-1 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] whitespace-nowrap"
-                                >
-                                  Abrir Cadastro
-                                </button>
-                              </td>
                             </tr>
                           ))
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
+                </ScrollableTableCard>
               ) : (
-                <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-left text-xs">
+                <ScrollableTableCard header="Arquivos enviados e datas de validade extraídas ou editáveis.">
+                  <table className="w-full border-collapse text-left text-xs">
                       <thead>
                         <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                           <th className="px-3.5 py-3">Tipo</th>
@@ -2456,8 +2440,7 @@ export default function App() {
                         )}
                       </tbody>
                     </table>
-                  </div>
-                </div>
+                </ScrollableTableCard>
               )}
             </div>
           )}
@@ -2477,9 +2460,11 @@ export default function App() {
             />
           )}
 
-          {/* FRETES & ROTAS (AO LADO DE FINANCEIRO) */}
+          {/* ROTAS & DIARIAS (AO LADO DE FINANCEIRO) */}
           {activeSection === 'fretes' && (
             <FretesSection
+              uid={user.uid}
+              diasTrabalhados={diasTrabalhados}
               fretes={fretes}
               proprietarios={proprietarios}
               motoristas={motoristas}

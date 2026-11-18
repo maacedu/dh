@@ -101,10 +101,10 @@ export function OwnerDetailDrawer({
             </h2>
             <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
               <span className="font-mono tabular-nums">
-                {proprietario.cpfCnpj || 'CPF/CNPJ Pendente'}
+                {proprietario.cpfCnpj || 'CPF/CNPJ não informado'}
               </span>
               <span aria-hidden="true">·</span>
-              <span>{proprietario.contato || 'Contato Pendente'}</span>
+              <span>{proprietario.contato || 'Contato não informado'}</span>
               <span aria-hidden="true">·</span>
               <SituacaoIndicator situacao={proprietario.situacaoCadastral} />
             </div>
@@ -191,7 +191,7 @@ export function OwnerDetailDrawer({
                               : 'text-slate-500 dark:text-slate-400'
                           }`}
                         >
-                          CPF: {m.cpf || 'Pendente'} · CNH: {m.cnh || 'Pendente'} ({m.categoriaCnh || '-'}) · Validade: {formatDatePtBr(m.validadeCnh)}
+                          CPF: {m.cpf || '—'} · CNH: {m.cnh || '—'} ({m.categoriaCnh || '-'}) · Validade: {formatDatePtBr(m.validadeCnh)}
                         </p>
                       </div>
                       <div className="flex items-center gap-3 shrink-0">
@@ -259,11 +259,11 @@ export function OwnerDetailDrawer({
                   >
                     <div>
                       <p className="font-medium text-slate-900 dark:text-white">
-                        <span className="font-mono">{v.placa}</span> · {v.marca || 'Marca pendente'}{' '}
-                        {v.modelo || ''} ({v.tipoVeiculo || 'Tipo pendente'})
+                        <span className="font-mono">{v.placa}</span> · {v.marca || 'Marca não informada'}{' '}
+                        {v.modelo || ''} ({v.tipoVeiculo || 'Sem categoria'})
                       </p>
                       <p className="mt-0.5 font-mono tabular-nums text-slate-500 dark:text-slate-400">
-                        RENAVAM: {v.renavam || 'Pendente'} · Ano: {v.ano || 'Pendente'} · CRLV: {formatDatePtBr(v.validadeCrlv)}
+                        RENAVAM: {v.renavam || '—'} · Ano: {v.ano || '—'} · CRLV: {formatDatePtBr(v.validadeCrlv)}
                       </p>
                     </div>
                     <div className="flex items-center gap-3 shrink-0">

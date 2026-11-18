@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import type {
+  DiaTrabalhado,
   Documento,
   Frete,
   LancamentoFinanceiro,
@@ -7,25 +8,27 @@ import type {
   PendenciaItem,
   Proprietario,
   SituacaoCadastral,
+  StatusDiaTrabalhado,
   StatusDocumento,
   StatusFinanceiro,
   StatusFrete,
   TipoLancamento,
+  TurnoTrabalho,
   Veiculo,
 } from '../types/fleet';
 
 export const SITUACAO_LABELS: Record<SituacaoCadastral, string> = {
   aprovado: 'Aprovado',
-  pendente: 'Pendente',
-  documentacao_vencida: 'Documentação Vencida',
   em_analise: 'Em Análise',
+  pendente: 'Em Revisão',
+  documentacao_vencida: 'Documentação Vencida',
 };
 
 export const STATUS_DOC_LABELS: Record<StatusDocumento, string> = {
   valido: 'Válido',
   vencido: 'Vencido',
   a_vencer: 'A Vencer (30d)',
-  pendente: 'Pendente',
+  pendente: 'Em Revisão',
   em_analise: 'Em Análise',
 };
 
@@ -37,7 +40,7 @@ export const TIPO_LANCAMENTO_LABELS: Record<TipoLancamento, string> = {
 
 export const STATUS_FINANCEIRO_LABELS: Record<StatusFinanceiro, string> = {
   pago: 'Pago',
-  pendente: 'Pendente',
+  pendente: 'Em Aberto',
   atrasado: 'Atrasado',
   cancelado: 'Cancelado',
 };
@@ -48,6 +51,19 @@ export const STATUS_FRETE_LABELS: Record<StatusFrete, string> = {
   entregue: 'Entregue',
   faturado: 'Faturado',
   cancelado: 'Cancelado',
+};
+
+export const TURNO_TRABALHO_LABELS: Record<TurnoTrabalho, string> = {
+  dia_completo: 'Dia Completo',
+  meia_diaria: 'Meia Diária',
+  extra: 'Diária Extra',
+};
+
+export const STATUS_DIA_LABELS: Record<StatusDiaTrabalhado, string> = {
+  trabalhado: 'Trabalhado',
+  folga: 'Folga',
+  falta: 'Falta',
+  feriado: 'Feriado',
 };
 
 export const DEFAULT_CATEGORIAS_FINANCEIRAS: Array<{
@@ -93,7 +109,7 @@ export function evaluateDateStatus(dateStr: string): 'valido' | 'a_vencer' | 've
 }
 
 export function formatDatePtBr(dateStr: string): string {
-  if (!dateStr) return 'Pendente';
+  if (!dateStr) return '—';
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!match) return dateStr;
   return `${match[3]}/${match[2]}/${match[1]}`;
@@ -134,42 +150,24 @@ export function computeProprietarioPendingFields(p: Partial<Proprietario>): stri
 export function suggestSituacaoMotorista(m: Partial<Motorista>): SituacaoCadastral {
   const validadeStatus = evaluateDateStatus(m.validadeCnh || '');
   if (validadeStatus === 'vencido') return 'documentacao_vencida';
-  const pending = computeMotoristaPendingFields(m);
-  if (pending.length > 0) return 'pendente';
   return m.situacaoCadastral || 'em_analise';
 }
 
 export function suggestSituacaoVeiculo(v: Partial<Veiculo>): SituacaoCadastral {
   const validadeStatus = evaluateDateStatus(v.validadeCrlv || '');
   if (validadeStatus === 'vencido') return 'documentacao_vencida';
-  const pending = computeVeiculoPendingFields(v);
-  if (pending.length > 0) return 'pendente';
   return v.situacaoCadastral || 'em_analise';
 }
 
 export function generatePendencias(
   motoristas: Motorista[],
   veiculos: Veiculo[],
-  proprietarios: Proprietario[],
+  _proprietarios: Proprietario[],
   documentos: Documento[]
 ): PendenciaItem[] {
   const items: PendenciaItem[] = [];
 
   for (const m of motoristas) {
-    const cnhDocs = documentos.filter(
-      (d) => d.entidadeTipo === 'motorista' && d.entidadeId === m.id && d.tipoDocumento === 'CNH'
-    );
-    if (cnhDocs.length === 0) {
-      items.push({
-        id: `mot-doc-faltante-${m.id}`,
-        entidadeTipo: 'motorista',
-        entidadeId: m.id,
-        entidadeTitulo: m.nomeCompleto,
-        categoria: 'faltante',
-        descricao: 'Arquivo da CNH não anexado ao cadastro.',
-      });
-    }
-
     const cnhValidity = evaluateDateStatus(m.validadeCnh);
     if (cnhValidity === 'vencido') {
       items.push({
@@ -192,35 +190,9 @@ export function generatePendencias(
         dataReferencia: m.validadeCnh,
       });
     }
-
-    const missing = computeMotoristaPendingFields(m);
-    if (missing.length > 0) {
-      items.push({
-        id: `mot-campos-${m.id}`,
-        entidadeTipo: 'motorista',
-        entidadeId: m.id,
-        entidadeTitulo: m.nomeCompleto,
-        categoria: 'campo_pendente',
-        descricao: `Campos pendentes: ${missing.join(', ')}.`,
-      });
-    }
   }
 
   for (const v of veiculos) {
-    const crlvDocs = documentos.filter(
-      (d) => d.entidadeTipo === 'veiculo' && d.entidadeId === v.id && d.tipoDocumento === 'CRLV'
-    );
-    if (crlvDocs.length === 0) {
-      items.push({
-        id: `vei-doc-faltante-${v.id}`,
-        entidadeTipo: 'veiculo',
-        entidadeId: v.id,
-        entidadeTitulo: `${v.placa}${v.modelo ? ` · ${v.modelo}` : ''}`,
-        categoria: 'faltante',
-        descricao: 'Arquivo do CRLV não anexado ao veículo.',
-      });
-    }
-
     const crlvValidity = evaluateDateStatus(v.validadeCrlv);
     if (crlvValidity === 'vencido') {
       items.push({
@@ -241,32 +213,6 @@ export function generatePendencias(
         categoria: 'a_vencer',
         descricao: `CRLV vence em ${formatDatePtBr(v.validadeCrlv)}.`,
         dataReferencia: v.validadeCrlv,
-      });
-    }
-
-    const missing = computeVeiculoPendingFields(v);
-    if (missing.length > 0) {
-      items.push({
-        id: `vei-campos-${v.id}`,
-        entidadeTipo: 'veiculo',
-        entidadeId: v.id,
-        entidadeTitulo: `${v.placa}${v.modelo ? ` · ${v.modelo}` : ''}`,
-        categoria: 'campo_pendente',
-        descricao: `Campos pendentes: ${missing.join(', ')}.`,
-      });
-    }
-  }
-
-  for (const p of proprietarios) {
-    const missing = computeProprietarioPendingFields(p);
-    if (missing.length > 0) {
-      items.push({
-        id: `prop-campos-${p.id}`,
-        entidadeTipo: 'proprietario',
-        entidadeId: p.id,
-        entidadeTitulo: p.nomeCompleto,
-        categoria: 'campo_pendente',
-        descricao: `Campos pendentes do proprietário: ${missing.join(', ')}.`,
       });
     }
   }
@@ -294,8 +240,8 @@ export function generatePendencias(
 
   const orderWeight: Record<PendenciaItem['categoria'], number> = {
     vencido: 0,
-    faltante: 1,
-    a_vencer: 2,
+    a_vencer: 1,
+    faltante: 2,
     campo_pendente: 3,
   };
 
@@ -309,7 +255,8 @@ export function exportFleetToExcel(
   documentos: Documento[],
   pendencias: PendenciaItem[],
   lancamentos: LancamentoFinanceiro[] = [],
-  fretes: Frete[] = []
+  fretes: Frete[] = [],
+  diasTrabalhados: DiaTrabalhado[] = []
 ): void {
   const propMap = new Map(proprietarios.map((p) => [p.id, p]));
   const motMap = new Map(motoristas.map((m) => [m.id, m]));
@@ -318,38 +265,36 @@ export function exportFleetToExcel(
   const motoristasRows = motoristas.map((m) => {
     const linkedVeiPlaca = veiculos.find((v) => v.motoristaId === m.id)?.placa || '';
     return {
-      'Nome Completo': m.nomeCompleto || 'Pendente',
-      CPF: m.cpf || 'Pendente',
-      CNH: m.cnh || 'Pendente',
-      Categoria: m.categoriaCnh || 'Pendente',
+      'Nome Completo': m.nomeCompleto || '—',
+      CPF: m.cpf || '—',
+      CNH: m.cnh || '—',
+      Categoria: m.categoriaCnh || '—',
       'Validade CNH': formatDatePtBr(m.validadeCnh),
-      Telefone: m.telefone || 'Pendente',
-      Placa: m.placa || linkedVeiPlaca || '-',
+      Telefone: m.telefone || '—',
+      Placa: m.placa || linkedVeiPlaca || '—',
       'Proprietário Vinculado': m.proprietarioId
         ? propMap.get(m.proprietarioId)?.nomeCompleto || m.proprietarioId
         : 'Sem vínculo',
       'Situação Cadastral': SITUACAO_LABELS[m.situacaoCadastral] || m.situacaoCadastral,
-      'Campos Pendentes': computeMotoristaPendingFields(m).join(', ') || 'Nenhum',
       Observações: m.observacoes || '',
     };
   });
 
   const veiculosRows = veiculos.map((v) => ({
-    Placa: v.placa || 'Pendente',
-    Marca: v.marca || 'Pendente',
-    Modelo: v.modelo || 'Pendente',
-    Ano: v.ano || 'Pendente',
-    RENAVAM: v.renavam || 'Pendente',
-    'Tipo de Veículo': v.tipoVeiculo || 'Pendente',
+    Placa: v.placa || '—',
+    Marca: v.marca || '—',
+    Modelo: v.modelo || '—',
+    Ano: v.ano || '—',
+    RENAVAM: v.renavam || '—',
+    'Tipo de Veículo': v.tipoVeiculo || '—',
     'Proprietário': v.proprietarioId
       ? propMap.get(v.proprietarioId)?.nomeCompleto || v.proprietarioId
-      : 'Pendente',
+      : 'Sem vínculo',
     'Motorista Vinculado': v.motoristaId
       ? motMap.get(v.motoristaId)?.nomeCompleto || v.motoristaId
       : 'Não vinculado',
     'Validade CRLV': formatDatePtBr(v.validadeCrlv),
     'Situação Cadastral': SITUACAO_LABELS[v.situacaoCadastral] || v.situacaoCadastral,
-    'Campos Pendentes': computeVeiculoPendingFields(v).join(', ') || 'Nenhum',
     Observações: v.observacoes || '',
   }));
 
@@ -357,9 +302,9 @@ export function exportFleetToExcel(
     const linkedVeis = veiculos.filter((v) => v.proprietarioId === p.id);
     const linkedMots = motoristas.filter((m) => m.proprietarioId === p.id);
     return {
-      'Nome Completo / Razão Social': p.nomeCompleto || 'Pendente',
-      'CPF / CNPJ': p.cpfCnpj || 'Pendente',
-      Contato: p.contato || 'Pendente',
+      'Nome Completo / Razão Social': p.nomeCompleto || '—',
+      'CPF / CNPJ': p.cpfCnpj || '—',
+      Contato: p.contato || '—',
       'Veículos Vinculados (Qtd)': linkedVeis.length,
       'Placas Vinculadas': linkedVeis.map((v) => v.placa).join(', ') || 'Nenhum',
       'Motoristas Vinculados (Qtd)': linkedMots.length,
@@ -376,23 +321,15 @@ export function exportFleetToExcel(
     'Vínculo (Nome/Placa)': d.entidadeNome,
     Validade: formatDatePtBr(d.dataValidade),
     Status: STATUS_DOC_LABELS[d.statusDocumento] || d.statusDocumento,
-    'Campos Pendentes': (d.camposPendentes || []).join(', ') || 'Nenhum',
     Resumo: d.resumoExtracao || '',
   }));
 
-  const pendenciasRows = pendencias.map((pen) => ({
-    Categoria:
-      pen.categoria === 'vencido'
-        ? 'Vencido'
-        : pen.categoria === 'faltante'
-          ? 'Documento Faltante'
-          : pen.categoria === 'a_vencer'
-            ? 'A Vencer (30d)'
-            : 'Campo Pendente',
+  const vencimentosRows = pendencias.map((pen) => ({
+    Alerta: pen.categoria === 'vencido' ? 'Vencido' : 'A Vencer (30d)',
     'Tipo de Cadastro': pen.entidadeTipo.toUpperCase(),
     'Identificação': pen.entidadeTitulo,
     Descrição: pen.descricao,
-    'Data Referência': pen.dataReferencia ? formatDatePtBr(pen.dataReferencia) : '-',
+    'Data Referência': pen.dataReferencia ? formatDatePtBr(pen.dataReferencia) : '—',
   }));
 
   const financeiroRows = lancamentos.map((l) => ({
@@ -400,27 +337,39 @@ export function exportFleetToExcel(
     Tipo: TIPO_LANCAMENTO_LABELS[l.tipo] || l.tipo,
     Categoria: l.categoria,
     Valor: l.valor,
-    Vencimento: l.dataVencimento ? formatDatePtBr(l.dataVencimento) : '-',
-    Pagamento: l.dataPagamento ? formatDatePtBr(l.dataPagamento) : '-',
+    Vencimento: l.dataVencimento ? formatDatePtBr(l.dataVencimento) : '—',
+    Pagamento: l.dataPagamento ? formatDatePtBr(l.dataPagamento) : '—',
     Status: STATUS_FINANCEIRO_LABELS[l.status] || l.status,
-    Proprietário: l.proprietarioId ? propMap.get(l.proprietarioId)?.nomeCompleto || '-' : '-',
-    Motorista: l.motoristaId ? motMap.get(l.motoristaId)?.nomeCompleto || '-' : '-',
-    Veículo: l.veiculoId ? veiMap.get(l.veiculoId)?.placa || '-' : '-',
+    Proprietário: l.proprietarioId ? propMap.get(l.proprietarioId)?.nomeCompleto || '—' : '—',
+    Motorista: l.motoristaId ? motMap.get(l.motoristaId)?.nomeCompleto || '—' : '—',
+    Veículo: l.veiculoId ? veiMap.get(l.veiculoId)?.placa || '—' : '—',
     Observações: l.observacoes || '',
   }));
 
   const fretesRows = fretes.map((f) => ({
     Cliente: f.cliente,
-    Origem: f.origem || '-',
-    Destino: f.destino || '-',
-    'Data Saída': f.dataSaida ? formatDatePtBr(f.dataSaida) : '-',
+    Origem: f.origem || '—',
+    Destino: f.destino || '—',
+    'Data Saída': f.dataSaida ? formatDatePtBr(f.dataSaida) : '—',
     'Valor Frete': f.valorFrete,
     'Valor Repasse': f.valorRepasse,
     Status: STATUS_FRETE_LABELS[f.status] || f.status,
-    Proprietário: f.proprietarioId ? propMap.get(f.proprietarioId)?.nomeCompleto || '-' : '-',
-    Motorista: f.motoristaId ? motMap.get(f.motoristaId)?.nomeCompleto || '-' : '-',
-    Veículo: f.veiculoId ? veiMap.get(f.veiculoId)?.placa || '-' : '-',
+    Proprietário: f.proprietarioId ? propMap.get(f.proprietarioId)?.nomeCompleto || '—' : '—',
+    Motorista: f.motoristaId ? motMap.get(f.motoristaId)?.nomeCompleto || '—' : '—',
+    Veículo: f.veiculoId ? veiMap.get(f.veiculoId)?.placa || '—' : '—',
     Observações: f.observacoes || '',
+  }));
+
+  const diasRows = diasTrabalhados.map((d) => ({
+    Data: formatDatePtBr(d.data),
+    Motorista: motMap.get(d.motoristaId)?.nomeCompleto || '—',
+    Placa: d.placa || veiMap.get(d.veiculoId)?.placa || '—',
+    Proprietário: d.proprietarioId ? propMap.get(d.proprietarioId)?.nomeCompleto || '—' : '—',
+    'Rota / Operação': d.rota || '—',
+    Modalidade: TURNO_TRABALHO_LABELS[d.turno] || d.turno,
+    'Valor Diária': d.valorDiaria,
+    Status: STATUS_DIA_LABELS[d.status] || d.status,
+    Observações: d.observacoes || '',
   }));
 
   const wb = XLSX.utils.book_new();
@@ -428,12 +377,17 @@ export function exportFleetToExcel(
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(veiculosRows), 'Veículos');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(proprietariosRows), 'Proprietários');
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(documentosRows), 'Documentação');
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(pendenciasRows), 'Pendências');
+  if (vencimentosRows.length > 0) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(vencimentosRows), 'Vencimentos');
+  }
+  if (diasRows.length > 0) {
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(diasRows), 'Dias Trabalhados');
+  }
   if (financeiroRows.length > 0) {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(financeiroRows), 'Financeiro');
   }
   if (fretesRows.length > 0) {
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fretesRows), 'Fretes e Rotas');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(fretesRows), 'Fretes');
   }
 
   XLSX.writeFile(wb, `El_Nathan_Transportes_Cadastros_${getTodayIso()}.xlsx`);

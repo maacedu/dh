@@ -24,8 +24,8 @@ export function SituacaoIndicator({ situacao }: SituacaoIndicatorProps) {
       );
     case 'pendente':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-700 dark:text-orange-400 whitespace-nowrap">
-          <AlertCircle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+          <Clock className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
           <span>{SITUACAO_LABELS.pendente}</span>
         </span>
       );
@@ -68,8 +68,8 @@ export function DocStatusIndicator({ status }: DocStatusIndicatorProps) {
       );
     case 'pendente':
       return (
-        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-orange-700 dark:text-orange-400 whitespace-nowrap">
-          <AlertCircle className="h-3.5 w-3.5 text-orange-600 dark:text-orange-400 shrink-0" />
+        <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-300 whitespace-nowrap">
+          <AlertCircle className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400 shrink-0" />
           <span>{STATUS_DOC_LABELS.pendente}</span>
         </span>
       );

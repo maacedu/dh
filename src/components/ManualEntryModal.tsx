@@ -159,13 +159,11 @@ export function ManualEntryModal({
           setSubmitting(false);
           return;
         }
-        const autoSituacao: SituacaoCadastral =
-          !propCpfCnpj.trim() || !propContato.trim() ? 'pendente' : situacao;
         const newPropId = await createProprietario(uid, {
           nomeCompleto: propNome,
           cpfCnpj: propCpfCnpj,
           contato: propContato,
-          situacaoCadastral: autoSituacao,
+          situacaoCadastral: situacao,
           observacoes,
         });
 
@@ -347,7 +345,7 @@ export function ManualEntryModal({
                     type="text"
                     value={propCpfCnpj}
                     onChange={(e) => setPropCpfCnpj(e.target.value)}
-                    placeholder="Deixe vazio se pendente"
+                    placeholder="000.000.000-00 (opcional)"
                     className={`${inputCls} font-mono`}
                   />
                 </div>
@@ -418,7 +416,7 @@ export function ManualEntryModal({
                               <div className="min-w-0">
                                 <p className="truncate font-medium">{m.nomeCompleto}</p>
                                 <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                                  CPF: {m.cpf || 'Pendente'} · CNH: {m.cnh || 'Pendente'}
+                                  CPF: {m.cpf || '—'} · CNH: {m.cnh || '—'}
                                   {currentOwner ? ` · Atual: ${currentOwner}` : ''}
                                 </p>
                               </div>
@@ -558,7 +556,7 @@ export function ManualEntryModal({
                   onChange={(e) => setVeiTipo(e.target.value as TipoVeiculo)}
                   className={inputCls}
                 >
-                  <option value="">Pendente (definir depois)</option>
+                  <option value="">Sem categoria</option>
                   <option value="Van">Van</option>
                   <option value="HR">HR</option>
                   <option value="VUC">VUC</option>
@@ -620,7 +618,7 @@ export function ManualEntryModal({
                   onChange={(e) => setVeiPropId(e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">Pendente de vínculo</option>
+                  <option value="">Sem vínculo</option>
                   {proprietarios.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nomeCompleto}
@@ -705,7 +703,7 @@ export function ManualEntryModal({
                   onChange={(e) => setFinStatus(e.target.value as StatusFinanceiro)}
                   className={inputCls}
                 >
-                  <option value="pendente">Pendente</option>
+                  <option value="pendente">Em Aberto</option>
                   <option value="pago">Pago</option>
                   <option value="atrasado">Atrasado</option>
                   <option value="cancelado">Cancelado</option>
@@ -916,7 +914,7 @@ export function ManualEntryModal({
                 >
                   <option value="em_analise">Em Análise</option>
                   <option value="aprovado">Aprovado</option>
-                  <option value="pendente">Pendente</option>
+                  <option value="pendente">Em Revisão</option>
                   <option value="documentacao_vencida">Documentação Vencida</option>
                 </select>
               </div>

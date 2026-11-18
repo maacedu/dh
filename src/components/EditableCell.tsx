@@ -15,11 +15,11 @@ interface EditableCellProps {
 
 export function EditableCell({
   value,
-  placeholder = 'Pendente',
+  placeholder = '—',
   type = 'text',
   mono = false,
   displayValue,
-  requiredPending = true,
+  requiredPending = false,
   tone = 'default',
   onSave,
   onError,
@@ -90,7 +90,7 @@ export function EditableCell({
     <button
       type="button"
       onClick={() => setEditing(true)}
-      title="Clique para editar manualmente"
+      title="Clique para editar"
       className={`group flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-xs transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
         isEmerald
           ? 'hover:bg-emerald-500/15'
@@ -100,9 +100,9 @@ export function EditableCell({
       <span
         className={`truncate ${mono ? 'font-mono tabular-nums' : ''} ${
           isEmpty && requiredPending
-            ? 'font-medium text-slate-800 dark:text-white'
+            ? 'text-slate-500 dark:text-slate-400'
             : isEmpty
-              ? 'text-slate-400 dark:text-slate-400'
+              ? 'text-slate-400 dark:text-slate-500'
               : isEmerald
                 ? 'font-medium text-emerald-800 dark:text-emerald-300'
                 : 'text-slate-800 dark:text-slate-200'

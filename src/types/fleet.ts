@@ -189,3 +189,24 @@ export interface Frete {
   createdAt?: unknown;
   updatedAt?: unknown;
 }
+
+export type TurnoTrabalho = 'dia_completo' | 'meia_diaria' | 'extra';
+
+export type StatusDiaTrabalhado = 'trabalhado' | 'folga' | 'falta' | 'feriado';
+
+export interface DiaTrabalhado {
+  id: string;
+  ownerUid: string;
+  motoristaId: string;
+  proprietarioId: string;
+  veiculoId: string;
+  placa: string;
+  data: string;
+  rota: string;
+  turno: TurnoTrabalho;
+  valorDiaria: number;
+  status: StatusDiaTrabalhado;
+  observacoes?: string;
+  createdAt?: unknown;
+  updatedAt?: unknown;
+}

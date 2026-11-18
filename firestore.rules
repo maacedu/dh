@@ -266,6 +266,31 @@ service cloud.firestore {
       && data.updatedAt is timestamp;
     }
 
+    function isValidDiaTrabalhado(data) {
+      return data.keys().hasAll([
+        'ownerUid', 'motoristaId', 'proprietarioId', 'veiculoId', 'placa',
+        'data', 'rota', 'turno', 'valorDiaria', 'status', 'createdAt', 'updatedAt'
+      ])
+      && data.keys().hasOnly([
+        'ownerUid', 'motoristaId', 'proprietarioId', 'veiculoId', 'placa',
+        'data', 'rota', 'turno', 'valorDiaria', 'status', 'observacoes', 'createdAt', 'updatedAt'
+      ])
+      && isValidId(data.ownerUid)
+      && (data.ownerUid == request.auth.uid || isAdmin())
+      && isValidId(data.motoristaId)
+      && isValidOptionalId(data.proprietarioId)
+      && isValidOptionalId(data.veiculoId)
+      && data.placa is string && data.placa.size() <= 16
+      && data.data is string && data.data.size() >= 8 && data.data.size() <= 20
+      && data.rota is string && data.rota.size() <= 160
+      && data.turno is string && data.turno.size() <= 24 && data.turno in ['dia_completo', 'meia_diaria', 'extra']
+      && data.valorDiaria is number && data.valorDiaria >= 0 && data.valorDiaria <= 100000000
+      && data.status is string && data.status.size() <= 24 && data.status in ['trabalhado', 'folga', 'falta', 'feriado']
+      && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && data.createdAt is timestamp
+      && data.updatedAt is timestamp;
+    }
+
     // Admins Collection (Read-only for self/admin, writes blocked on client)
     match /admins/{adminId} {
       allow get: if isValidId(adminId) && isEmailVerified() && (request.auth.uid == adminId || isAdmin());
@@ -505,6 +530,43 @@ service cloud.firestore {
         );
 
       allow delete: if isValidId(freteId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Dias Trabalhados (Rotas dos Motoristas) Collection
+    match /dias_trabalhados/{registroId} {
+      allow get: if isValidId(registroId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
+
+      allow create: if isSignedIn()
+        && isValidId(registroId)
+        && isValidDiaTrabalhado(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && (isOwner(incoming().ownerUid) || isAdmin())
+        && ownsMotorista(incoming().motoristaId, incoming().ownerUid)
+        && ownsProprietario(incoming().proprietarioId, incoming().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, incoming().ownerUid);
+
+      allow update: if isSignedIn()
+        && isValidId(registroId)
+        && isValidDiaTrabalhado(incoming())
+        && incoming().ownerUid == existing().ownerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (isOwner(existing().ownerUid) || isAdmin())
+        && ownsMotorista(incoming().motoristaId, existing().ownerUid)
+        && ownsProprietario(incoming().proprietarioId, existing().ownerUid)
+        && ownsVeiculo(incoming().veiculoId, existing().ownerUid)
+        && (
+          isAdmin() ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'motoristaId', 'proprietarioId', 'veiculoId', 'placa',
+            'data', 'rota', 'turno', 'valorDiaria', 'status', 'observacoes', 'updatedAt'
+          ]) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['status', 'turno', 'updatedAt'])
+        );
+
+      allow delete: if isValidId(registroId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
     }
   }
 }

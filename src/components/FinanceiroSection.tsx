@@ -23,6 +23,7 @@ import {
   updateLancamentoFinanceiro,
 } from '../lib/fleetService';
 import { EditableCell } from './EditableCell';
+import { ScrollableTableCard } from './ScrollableTableCard';
 
 interface FinanceiroSectionProps {
   uid: string;
@@ -252,7 +253,7 @@ export function FinanceiroSection({
               className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3 py-1.5 text-xs text-slate-700 dark:text-slate-200 focus:border-blue-500 focus:outline-none"
             >
               <option value="todos">Todos os Status</option>
-              <option value="pendente">Pendente</option>
+              <option value="pendente">Em Aberto</option>
               <option value="pago">Pago</option>
               <option value="atrasado">Atrasado</option>
               <option value="cancelado">Cancelado</option>
@@ -270,12 +271,8 @@ export function FinanceiroSection({
       </div>
 
       {subTab === 'lancamentos' ? (
-        <div className="overflow-hidden rounded-xl border border-slate-200/90 dark:border-white/[0.08] bg-white dark:bg-[#0F1520]">
-          <div className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/80 dark:bg-white/[0.02] px-4 py-2.5 text-[11px] text-slate-500 dark:text-slate-400">
-            Planilha financeira editável: vincule lançamentos e repasses diretamente a proprietários, motoristas e veículos.
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
+        <ScrollableTableCard header="Planilha financeira editável: vincule lançamentos e repasses diretamente a proprietários, motoristas e veículos.">
+          <table className="w-full border-collapse text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                   <th className="px-3.5 py-3">Descrição</th>
@@ -469,8 +466,7 @@ export function FinanceiroSection({
                 )}
               </tbody>
             </table>
-          </div>
-        </div>
+        </ScrollableTableCard>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           {/* Nova Categoria Form */}

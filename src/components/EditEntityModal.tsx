@@ -451,7 +451,7 @@ export function EditEntityModal({
                   onChange={(e) => setVeiTipo(e.target.value as TipoVeiculo)}
                   className={inputCls}
                 >
-                  <option value="">Pendente</option>
+                  <option value="">Sem categoria</option>
                   <option value="Van">Van</option>
                   <option value="HR">HR</option>
                   <option value="VUC">VUC</option>
@@ -515,7 +515,7 @@ export function EditEntityModal({
                   onChange={(e) => setVeiPropId(e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">Pendente de vínculo</option>
+                  <option value="">Sem vínculo</option>
                   {proprietarios.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nomeCompleto}
@@ -619,7 +619,7 @@ export function EditEntityModal({
                             <div className="min-w-0">
                               <p className="truncate font-medium">{m.nomeCompleto}</p>
                               <p className="truncate font-mono text-[10px] text-slate-500 dark:text-slate-400">
-                                CPF: {m.cpf || 'Pendente'} · CNH: {m.cnh || 'Pendente'}
+                                CPF: {m.cpf || '—'} · CNH: {m.cnh || '—'}
                                 {otherOwner ? ` · Atual: ${otherOwner}` : ''}
                               </p>
                             </div>
@@ -648,7 +648,7 @@ export function EditEntityModal({
               rows={2}
               value={observacoes}
               onChange={(e) => setObservacoes(e.target.value)}
-              placeholder="Anotações internas sobre documentação, pendências ou histórico..."
+              placeholder="Anotações internas sobre documentação ou histórico..."
               className={inputCls}
             />
           </div>

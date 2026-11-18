@@ -481,6 +481,80 @@
         }
       },
       "required": ["ownerUid", "cliente", "origem", "destino", "dataSaida", "valorFrete", "valorRepasse", "proprietarioId", "motoristaId", "veiculoId", "status", "createdAt", "updatedAt"]
+    },
+    "DiaTrabalhado": {
+      "title": "DiaTrabalhado",
+      "description": "Registro diário de rota e dia trabalhado por motorista da transportadora.",
+      "type": "object",
+      "properties": {
+        "ownerUid": {
+          "type": "string",
+          "description": "UID do usuário autenticado responsável pelo registro.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "motoristaId": {
+          "type": "string",
+          "description": "ID do motorista cadastrado que realizou a diária/rota.",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "proprietarioId": {
+          "type": "string",
+          "description": "ID do proprietário vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "veiculoId": {
+          "type": "string",
+          "description": "ID do veículo vinculado ou string vazia.",
+          "maxLength": 128
+        },
+        "placa": {
+          "type": "string",
+          "description": "Placa do veículo utilizado na rota.",
+          "maxLength": 16
+        },
+        "data": {
+          "type": "string",
+          "description": "Data do dia trabalhado no formato YYYY-MM-DD.",
+          "maxLength": 20
+        },
+        "rota": {
+          "type": "string",
+          "description": "Nome da rota, operação ou cliente atendido no dia.",
+          "maxLength": 160
+        },
+        "turno": {
+          "type": "string",
+          "description": "Modalidade da diária trabalhada.",
+          "enum": ["dia_completo", "meia_diaria", "extra"],
+          "maxLength": 24
+        },
+        "valorDiaria": {
+          "type": "number",
+          "description": "Valor da diária ou repasse do dia em BRL."
+        },
+        "status": {
+          "type": "string",
+          "description": "Situação do dia no controle de rotas.",
+          "enum": ["trabalhado", "folga", "falta", "feriado"],
+          "maxLength": 24
+        },
+        "observacoes": {
+          "type": "string",
+          "description": "Observações sobre a rota ou dia trabalhado.",
+          "maxLength": 500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["ownerUid", "motoristaId", "proprietarioId", "veiculoId", "placa", "data", "rota", "turno", "valorDiaria", "status", "createdAt", "updatedAt"]
     }
   },
   "firestore": {
@@ -511,6 +585,10 @@
     "/fretes/{freteId}": {
       "schema": { "$ref": "#/entities/Frete" },
       "description": "Coleção de fretes e rotas operacionais da transportadora."
+    },
+    "/dias_trabalhados/{registroId}": {
+      "schema": { "$ref": "#/entities/DiaTrabalhado" },
+      "description": "Coleção de dias trabalhados e rotas diárias dos motoristas."
     }
   }
 }

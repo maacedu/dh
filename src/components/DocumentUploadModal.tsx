@@ -13,16 +13,12 @@ import type {
   ExtractionResponse,
   Motorista,
   Proprietario,
-  SituacaoCadastral,
   StatusDocumento,
   TipoDocumento,
   TipoVeiculo,
   Veiculo,
 } from '../types/fleet';
 import {
-  computeMotoristaPendingFields,
-  computeProprietarioPendingFields,
-  computeVeiculoPendingFields,
   evaluateDateStatus,
   suggestSituacaoMotorista,
   suggestSituacaoVeiculo,
@@ -93,7 +89,6 @@ export function DocumentUploadModal({
   const [entidadePrincipal, setEntidadePrincipal] = useState<EntidadeTipo>('motorista');
   const [dataValidadeDoc, setDataValidadeDoc] = useState('');
   const [resumoExtracao, setResumoExtracao] = useState('');
-  const [camposNaoIdentificados, setCamposNaoIdentificados] = useState<string[]>([]);
 
   // Motorista review fields
   const [includeMotorista, setIncludeMotorista] = useState(false);
@@ -198,7 +193,6 @@ export function DocumentUploadModal({
       );
       setDataValidadeDoc(ext.dataValidadeDocumento || '');
       setResumoExtracao(ext.resumoExtracao || '');
-      setCamposNaoIdentificados(ext.camposNaoIdentificados || []);
 
       // Populate Motorista strictly from extraction
       const hasMot = Boolean(
@@ -311,17 +305,11 @@ export function DocumentUploadModal({
       if (includeProprietario || (targetProprietarioId !== '__none__' && targetProprietarioId !== '')) {
         if (targetProprietarioId === '__new__') {
           if (propNome.trim() || propCpfCnpj.trim()) {
-            const propMissing = computeProprietarioPendingFields({
-              nomeCompleto: propNome,
-              cpfCnpj: propCpfCnpj,
-              contato: propContato,
-            });
-            const situacaoProp: SituacaoCadastral = propMissing.length > 0 ? 'pendente' : 'em_analise';
             resolvedProprietarioId = await createProprietario(user.uid, {
-              nomeCompleto: propNome.trim() || 'Proprietário (A preencher)',
+              nomeCompleto: propNome.trim() || 'Proprietário',
               cpfCnpj: propCpfCnpj,
               contato: propContato,
-              situacaoCadastral: situacaoProp,
+              situacaoCadastral: 'em_analise',
               observacoes: '',
             });
             resolvedProprietarioName = propNome.trim() || 'Proprietário';
@@ -345,7 +333,7 @@ export function DocumentUploadModal({
       if (includeMotorista) {
         if (targetMotoristaId === '__new__') {
           const motSituacao = suggestSituacaoMotorista({
-            nomeCompleto: motNome || 'Motorista (A preencher)',
+            nomeCompleto: motNome || 'Motorista',
             cpf: motCpf,
             cnh: motCnh,
             categoriaCnh: motCategoria,
@@ -354,7 +342,7 @@ export function DocumentUploadModal({
             situacaoCadastral: 'em_analise',
           });
           resolvedMotoristaId = await createMotorista(user.uid, {
-            nomeCompleto: motNome.trim() || 'Motorista (A preencher)',
+            nomeCompleto: motNome.trim() || 'Motorista',
             cpf: motCpf,
             cnh: motCnh,
             categoriaCnh: motCategoria,
@@ -410,7 +398,7 @@ export function DocumentUploadModal({
       if (includeVeiculo) {
         if (targetVeiculoId === '__new__') {
           const veiSituacao = suggestSituacaoVeiculo({
-            placa: veiPlaca || 'PENDENTE',
+            placa: veiPlaca || 'SEM PLACA',
             marca: veiMarca,
             modelo: veiModelo,
             ano: veiAno,
@@ -421,7 +409,7 @@ export function DocumentUploadModal({
             situacaoCadastral: 'em_analise',
           });
           resolvedVeiculoId = await createVeiculo(user.uid, {
-            placa: veiPlaca.trim() || 'PENDENTE',
+            placa: veiPlaca.trim() || 'SEM PLACA',
             marca: veiMarca,
             modelo: veiModelo,
             ano: veiAno,
@@ -433,7 +421,7 @@ export function DocumentUploadModal({
             situacaoCadastral: veiSituacao,
             observacoes: '',
           });
-          resolvedVeiculoName = `${veiPlaca.trim().toUpperCase() || 'PENDENTE'}${
+          resolvedVeiculoName = `${veiPlaca.trim().toUpperCase() || 'SEM PLACA'}${
             veiModelo ? ` · ${veiModelo.trim()}` : ''
           }`;
         } else {
@@ -502,37 +490,7 @@ export function DocumentUploadModal({
         (docEntidadeTipo === 'motorista' ? motValidade : docEntidadeTipo === 'veiculo' ? veiValidadeCrlv : '');
       const statusDoc: StatusDocumento = effectiveExpiry
         ? evaluateDateStatus(effectiveExpiry)
-        : camposNaoIdentificados.length > 0
-          ? 'pendente'
-          : 'em_analise';
-
-      const pendingList = Array.from(
-        new Set([
-          ...camposNaoIdentificados,
-          ...(includeMotorista
-            ? computeMotoristaPendingFields({
-                nomeCompleto: motNome,
-                cpf: motCpf,
-                cnh: motCnh,
-                categoriaCnh: motCategoria,
-                validadeCnh: motValidade,
-                telefone: motTelefone,
-              })
-            : []),
-          ...(includeVeiculo
-            ? computeVeiculoPendingFields({
-                placa: veiPlaca,
-                modelo: veiModelo,
-                marca: veiMarca,
-                ano: veiAno,
-                renavam: veiRenavam,
-                tipoVeiculo: veiTipo,
-                proprietarioId: resolvedProprietarioId,
-                validadeCrlv: veiValidadeCrlv,
-              })
-            : []),
-        ])
-      ).slice(0, 15);
+        : 'em_analise';
 
       await createDocumento(user.uid, {
         tipoDocumento: tipoDoc,
@@ -543,7 +501,7 @@ export function DocumentUploadModal({
         entidadeNome: docEntidadeNome,
         dataValidade: effectiveExpiry,
         statusDocumento: statusDoc,
-        camposPendentes: pendingList,
+        camposPendentes: [],
         resumoExtracao,
         observacoes: '',
       });
@@ -658,7 +616,7 @@ export function DocumentUploadModal({
                 </select>
               </div>
               <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-                Campos não identificados no documento permanecem em branco como pendentes para preenchimento manual.
+                Campos não identificados no documento permanecem em branco para revisão manual opcional.
               </p>
             </div>
           </div>
@@ -710,13 +668,6 @@ export function DocumentUploadModal({
                     </span>
                     {resumoExtracao}
                   </div>
-                </div>
-              )}
-
-              {camposNaoIdentificados.length > 0 && (
-                <div className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-slate-100 dark:bg-[#0B0F17] px-3.5 py-2.5 text-xs text-slate-800 dark:text-white">
-                  <span className="font-semibold">Campos pendentes (não presentes no documento): </span>
-                  {camposNaoIdentificados.join(' · ')}
                 </div>
               )}
 
@@ -791,7 +742,7 @@ export function DocumentUploadModal({
                             type="text"
                             value={propNome}
                             onChange={(e) => setPropNome(e.target.value)}
-                            placeholder="Pendente"
+                            placeholder="Nome ou razão social"
                             className={fieldInputCls}
                           />
                         </div>
@@ -803,7 +754,7 @@ export function DocumentUploadModal({
                             type="text"
                             value={propCpfCnpj}
                             onChange={(e) => setPropCpfCnpj(e.target.value)}
-                            placeholder="Pendente"
+                            placeholder="Opcional"
                             className={`${fieldInputCls} font-mono`}
                           />
                         </div>
@@ -815,7 +766,7 @@ export function DocumentUploadModal({
                             type="text"
                             value={propContato}
                             onChange={(e) => setPropContato(e.target.value)}
-                            placeholder="Pendente (preencher manual)"
+                            placeholder="Telefone ou e-mail"
                             className={fieldInputCls}
                           />
                         </div>
@@ -874,7 +825,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={motNome}
                         onChange={(e) => setMotNome(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Nome completo"
                         className={fieldInputCls}
                       />
                     </div>
@@ -886,7 +837,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={motCpf}
                         onChange={(e) => setMotCpf(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="000.000.000-00"
                         className={`${fieldInputCls} font-mono`}
                       />
                     </div>
@@ -898,7 +849,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={motCnh}
                         onChange={(e) => setMotCnh(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Nº da CNH"
                         className={`${fieldInputCls} font-mono`}
                       />
                     </div>
@@ -910,7 +861,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={motCategoria}
                         onChange={(e) => setMotCategoria(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="B, C, D, E..."
                         className={`${fieldInputCls} font-mono uppercase`}
                       />
                     </div>
@@ -933,7 +884,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={motTelefone}
                         onChange={(e) => setMotTelefone(e.target.value)}
-                        placeholder="Pendente (preencher manualmente se não constar no documento)"
+                        placeholder="(11) 90000-0000 (opcional)"
                         className={fieldInputCls}
                       />
                     </div>
@@ -983,7 +934,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={veiPlaca}
                         onChange={(e) => setVeiPlaca(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="ABC1D23"
                         className={`${fieldInputCls} font-mono uppercase`}
                       />
                     </div>
@@ -995,7 +946,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={veiMarca}
                         onChange={(e) => setVeiMarca(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Opcional"
                         className={fieldInputCls}
                       />
                     </div>
@@ -1007,7 +958,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={veiModelo}
                         onChange={(e) => setVeiModelo(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Opcional"
                         className={fieldInputCls}
                       />
                     </div>
@@ -1019,7 +970,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={veiAno}
                         onChange={(e) => setVeiAno(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Ex.: 2024"
                         className={`${fieldInputCls} font-mono`}
                       />
                     </div>
@@ -1031,7 +982,7 @@ export function DocumentUploadModal({
                         type="text"
                         value={veiRenavam}
                         onChange={(e) => setVeiRenavam(e.target.value)}
-                        placeholder="Pendente"
+                        placeholder="Opcional"
                         className={`${fieldInputCls} font-mono`}
                       />
                     </div>
@@ -1044,7 +995,7 @@ export function DocumentUploadModal({
                         onChange={(e) => setVeiTipo(e.target.value as TipoVeiculo)}
                         className={fieldInputCls}
                       >
-                        <option value="">Pendente</option>
+                        <option value="">Sem categoria</option>
                         <option value="Van">Van</option>
                         <option value="HR">HR</option>
                         <option value="VUC">VUC</option>
