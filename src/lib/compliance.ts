@@ -1,4 +1,6 @@
 import * as XLSX from 'xlsx';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import type {
   DiaTrabalhado,
   Documento,
@@ -94,15 +96,19 @@ export function getTodayIso(): string {
   return `${y}-${m}-${d}`;
 }
 
-export function evaluateDateStatus(dateStr: string): 'valido' | 'a_vencer' | 'vencido' | 'pendente' {
+export function computeDiffDays(dateStr: string): number | null {
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-    return 'pendente';
+    return null;
   }
   const today = new Date(`${getTodayIso()}T00:00:00`);
   const target = new Date(`${dateStr}T00:00:00`);
-  if (Number.isNaN(target.getTime())) return 'pendente';
+  if (Number.isNaN(target.getTime())) return null;
+  return Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
 
-  const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+export function evaluateDateStatus(dateStr: string): 'valido' | 'a_vencer' | 'vencido' | 'pendente' {
+  const diffDays = computeDiffDays(dateStr);
+  if (diffDays === null) return 'pendente';
   if (diffDays < 0) return 'vencido';
   if (diffDays <= 30) return 'a_vencer';
   return 'valido';
@@ -113,6 +119,19 @@ export function formatDatePtBr(dateStr: string): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
   if (!match) return dateStr;
   return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+export function formatIsoDateTimePtBr(isoStr?: string): string {
+  if (!isoStr) return '';
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return '';
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
 }
 
 export function computeMotoristaPendingFields(m: Partial<Motorista>): string[] {
@@ -169,6 +188,7 @@ export function generatePendencias(
 
   for (const m of motoristas) {
     const cnhValidity = evaluateDateStatus(m.validadeCnh);
+    const dias = computeDiffDays(m.validadeCnh) ?? undefined;
     if (cnhValidity === 'vencido') {
       items.push({
         id: `mot-cnh-vencida-${m.id}`,
@@ -178,6 +198,7 @@ export function generatePendencias(
         categoria: 'vencido',
         descricao: `CNH vencida em ${formatDatePtBr(m.validadeCnh)}.`,
         dataReferencia: m.validadeCnh,
+        diasRestantes: dias,
       });
     } else if (cnhValidity === 'a_vencer') {
       items.push({
@@ -188,12 +209,14 @@ export function generatePendencias(
         categoria: 'a_vencer',
         descricao: `CNH vence em ${formatDatePtBr(m.validadeCnh)}.`,
         dataReferencia: m.validadeCnh,
+        diasRestantes: dias,
       });
     }
   }
 
   for (const v of veiculos) {
     const crlvValidity = evaluateDateStatus(v.validadeCrlv);
+    const dias = computeDiffDays(v.validadeCrlv) ?? undefined;
     if (crlvValidity === 'vencido') {
       items.push({
         id: `vei-crlv-vencido-${v.id}`,
@@ -203,6 +226,7 @@ export function generatePendencias(
         categoria: 'vencido',
         descricao: `CRLV vencido em ${formatDatePtBr(v.validadeCrlv)}.`,
         dataReferencia: v.validadeCrlv,
+        diasRestantes: dias,
       });
     } else if (crlvValidity === 'a_vencer') {
       items.push({
@@ -213,6 +237,7 @@ export function generatePendencias(
         categoria: 'a_vencer',
         descricao: `CRLV vence em ${formatDatePtBr(v.validadeCrlv)}.`,
         dataReferencia: v.validadeCrlv,
+        diasRestantes: dias,
       });
     }
   }
@@ -221,11 +246,13 @@ export function generatePendencias(
     const docStatus = docItem.dataValidade
       ? evaluateDateStatus(docItem.dataValidade)
       : docItem.statusDocumento;
-    if (
-      docStatus === 'vencido' &&
-      !(docItem.entidadeTipo === 'motorista' && docItem.tipoDocumento === 'CNH') &&
-      !(docItem.entidadeTipo === 'veiculo' && docItem.tipoDocumento === 'CRLV')
-    ) {
+    const dias = computeDiffDays(docItem.dataValidade) ?? undefined;
+    const isDuplicateCnhOrCrlv =
+      (docItem.entidadeTipo === 'motorista' && docItem.tipoDocumento === 'CNH') ||
+      (docItem.entidadeTipo === 'veiculo' && docItem.tipoDocumento === 'CRLV');
+    if (isDuplicateCnhOrCrlv) continue;
+
+    if (docStatus === 'vencido') {
       items.push({
         id: `doc-vencido-${docItem.id}`,
         entidadeTipo: docItem.entidadeTipo,
@@ -234,6 +261,18 @@ export function generatePendencias(
         categoria: 'vencido',
         descricao: `Documento "${docItem.nomeArquivo}" vencido em ${formatDatePtBr(docItem.dataValidade)}.`,
         dataReferencia: docItem.dataValidade,
+        diasRestantes: dias,
+      });
+    } else if (docStatus === 'a_vencer') {
+      items.push({
+        id: `doc-avencer-${docItem.id}`,
+        entidadeTipo: docItem.entidadeTipo,
+        entidadeId: docItem.entidadeId,
+        entidadeTitulo: `${docItem.tipoDocumento} · ${docItem.entidadeNome}`,
+        categoria: 'a_vencer',
+        descricao: `Documento "${docItem.nomeArquivo}" vence em ${formatDatePtBr(docItem.dataValidade)}.`,
+        dataReferencia: docItem.dataValidade,
+        diasRestantes: dias,
       });
     }
   }
@@ -245,7 +284,11 @@ export function generatePendencias(
     campo_pendente: 3,
   };
 
-  return items.sort((a, b) => orderWeight[a.categoria] - orderWeight[b.categoria]);
+  return items.sort((a, b) => {
+    const wDiff = orderWeight[a.categoria] - orderWeight[b.categoria];
+    if (wDiff !== 0) return wDiff;
+    return (a.diasRestantes ?? 9999) - (b.diasRestantes ?? 9999);
+  });
 }
 
 export function exportFleetToExcel(
@@ -272,6 +315,8 @@ export function exportFleetToExcel(
       'Validade CNH': formatDatePtBr(m.validadeCnh),
       Telefone: m.telefone || '—',
       Placa: m.placa || linkedVeiPlaca || '—',
+      'Rota Padrão': m.rotaPadrao || '—',
+      'Diária Padrão (R$)': m.valorDiariaPadrao || 0,
       'Proprietário Vinculado': m.proprietarioId
         ? propMap.get(m.proprietarioId)?.nomeCompleto || m.proprietarioId
         : 'Sem vínculo',
@@ -391,4 +436,164 @@ export function exportFleetToExcel(
   }
 
   XLSX.writeFile(wb, `El_Nathan_Transportes_Cadastros_${getTodayIso()}.xlsx`);
+}
+
+export function exportWorkdaysPdf(params: {
+  monthLabel: string;
+  yearMonth: string;
+  periodLabel: string;
+  dias: DiaTrabalhado[];
+  motorista?: Motorista | null;
+  motoristas: Motorista[];
+  proprietarios: Proprietario[];
+  veiculos: Veiculo[];
+}): void {
+  const { monthLabel, yearMonth, periodLabel, dias, motorista, motoristas, proprietarios, veiculos } =
+    params;
+  const motMap = new Map(motoristas.map((m) => [m.id, m]));
+  const propMap = new Map(proprietarios.map((p) => [p.id, p]));
+  const veiMap = new Map(veiculos.map((v) => [v.id, v]));
+
+  const sortedDias = [...dias].sort((a, b) => a.data.localeCompare(b.data));
+  const trabalhadosCount = sortedDias.filter((d) => d.status === 'trabalhado').length;
+  const extrasCount = sortedDias.filter(
+    (d) => d.status === 'trabalhado' && d.turno === 'extra'
+  ).length;
+  const folgasFaltasCount = sortedDias.filter((d) => d.status !== 'trabalhado').length;
+  const totalValor = sortedDias.reduce((acc, d) => acc + (d.valorDiaria || 0), 0);
+
+  const docPdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  docPdf.setFillColor(15, 23, 42);
+  docPdf.rect(0, 0, 210, 28, 'F');
+  docPdf.setTextColor(255, 255, 255);
+  docPdf.setFont('helvetica', 'bold');
+  docPdf.setFontSize(15);
+  docPdf.text('EL NATHAN TRANSPORTES', 14, 12);
+  docPdf.setFont('helvetica', 'normal');
+  docPdf.setFontSize(9.5);
+  docPdf.text(
+    `Comprovante de Diárias e Rotas Trabalhadas · ${monthLabel} (${periodLabel})`,
+    14,
+    19.5
+  );
+  docPdf.setFontSize(8);
+  docPdf.setTextColor(203, 213, 225);
+  docPdf.text(`Emitido em ${formatDatePtBr(getTodayIso())}`, 196, 12, { align: 'right' });
+
+  let cursorY = 36;
+  docPdf.setTextColor(15, 23, 42);
+
+  if (motorista) {
+    const linkedPlate =
+      motorista.placa || veiculos.find((v) => v.motoristaId === motorista.id)?.placa || '—';
+    const propName = motorista.proprietarioId
+      ? propMap.get(motorista.proprietarioId)?.nomeCompleto || '—'
+      : 'Sem vínculo';
+
+    docPdf.setFillColor(248, 250, 252);
+    docPdf.setDrawColor(226, 232, 240);
+    docPdf.roundedRect(14, cursorY - 4, 182, 22, 2, 2, 'FD');
+
+    docPdf.setFont('helvetica', 'bold');
+    docPdf.setFontSize(10.5);
+    docPdf.text(`Motorista: ${motorista.nomeCompleto}`, 18, cursorY + 2);
+    docPdf.setFont('helvetica', 'normal');
+    docPdf.setFontSize(8.5);
+    docPdf.setTextColor(71, 85, 105);
+    docPdf.text(
+      `CPF: ${motorista.cpf || '—'}   ·   CNH: ${motorista.cnh || '—'}   ·   Placa: ${linkedPlate}`,
+      18,
+      cursorY + 8
+    );
+    docPdf.text(
+      `Proprietário: ${propName}${motorista.rotaPadrao ? `   ·   Rota Padrão: ${motorista.rotaPadrao}` : ''}`,
+      18,
+      cursorY + 13.5
+    );
+    cursorY += 25;
+  }
+
+  const head = motorista
+    ? [['Data', 'Rota / Operação', 'Placa', 'Turno', 'Status', 'Valor (R$)']]
+    : [['Data', 'Motorista', 'Rota / Operação', 'Placa', 'Turno', 'Status', 'Valor (R$)']];
+
+  const body = sortedDias.map((d) => {
+    const motName = motMap.get(d.motoristaId)?.nomeCompleto || '—';
+    const plate = d.placa || veiMap.get(d.veiculoId)?.placa || '—';
+    const baseRow = [
+      formatDatePtBr(d.data),
+      d.rota || '—',
+      plate,
+      TURNO_TRABALHO_LABELS[d.turno] || d.turno,
+      STATUS_DIA_LABELS[d.status] || d.status,
+      formatBrl(d.valorDiaria || 0),
+    ];
+    return motorista ? baseRow : [baseRow[0], motName, ...baseRow.slice(1)];
+  });
+
+  autoTable(docPdf, {
+    startY: cursorY,
+    head,
+    body:
+      body.length > 0
+        ? body
+        : [
+            motorista
+              ? ['Sem registros no período', '', '', '', '', '']
+              : ['Sem registros no período', '', '', '', '', '', ''],
+          ],
+    styles: {
+      fontSize: 8.2,
+      cellPadding: 2.5,
+      textColor: [30, 41, 59],
+    },
+    headStyles: {
+      fillColor: [30, 64, 175],
+      textColor: [255, 255, 255],
+      fontStyle: 'bold',
+    },
+    alternateRowStyles: {
+      fillColor: [248, 250, 252],
+    },
+    columnStyles: motorista
+      ? { 5: { halign: 'right', fontStyle: 'bold' } }
+      : { 6: { halign: 'right', fontStyle: 'bold' } },
+    margin: { left: 14, right: 14 },
+  });
+
+  const finalY =
+    ((docPdf as unknown as { lastAutoTable?: { finalY?: number } }).lastAutoTable?.finalY ||
+      cursorY + 20) + 8;
+
+  let summaryY = finalY;
+  if (summaryY + 20 > 282) {
+    docPdf.addPage();
+    summaryY = 20;
+  }
+  docPdf.setFillColor(236, 253, 245);
+  docPdf.setDrawColor(167, 243, 208);
+  docPdf.roundedRect(14, summaryY, 182, 18, 2, 2, 'FD');
+
+  docPdf.setFont('helvetica', 'normal');
+  docPdf.setFontSize(9);
+  docPdf.setTextColor(6, 95, 70);
+  docPdf.text(
+    `Trabalhados: ${trabalhadosCount} dia(s)   ·   Extras: ${extrasCount}   ·   Folgas/Faltas/Feriados: ${folgasFaltasCount}`,
+    18,
+    summaryY + 7
+  );
+  docPdf.setFont('helvetica', 'bold');
+  docPdf.setFontSize(11);
+  docPdf.text(`TOTAL DO PERÍODO: ${formatBrl(totalValor)}`, 192, summaryY + 13.2, {
+    align: 'right',
+  });
+
+  const safeSlug = (motorista ? motorista.nomeCompleto : 'Folha_Completa')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+
+  docPdf.save(`El_Nathan_Diarias_${safeSlug}_${yearMonth}.pdf`);
 }

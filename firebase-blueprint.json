@@ -116,6 +116,20 @@
           "description": "Observações sobre o motorista.",
           "maxLength": 500
         },
+        "rotaPadrao": {
+          "type": "string",
+          "description": "Rota ou operação padrão sugerida ao lançar diárias.",
+          "maxLength": 160
+        },
+        "valorDiariaPadrao": {
+          "type": "number",
+          "description": "Valor padrão da diária em BRL."
+        },
+        "statusAtualizadoEm": {
+          "type": "string",
+          "description": "Data/hora ISO da última alteração da situação cadastral.",
+          "maxLength": 32
+        },
         "createdAt": {
           "type": "string",
           "format": "date-time"
@@ -278,6 +292,16 @@
           "type": "string",
           "description": "Observações sobre o documento.",
           "maxLength": 500
+        },
+        "arquivoUrl": {
+          "type": "string",
+          "description": "URL de acesso ao arquivo original armazenado no Firebase Storage.",
+          "maxLength": 1200
+        },
+        "storagePath": {
+          "type": "string",
+          "description": "Caminho do objeto no Firebase Storage.",
+          "maxLength": 300
         },
         "createdAt": {
           "type": "string",

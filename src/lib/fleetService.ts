@@ -290,6 +290,7 @@ export async function createMotorista(
 ): Promise<string> {
   const id = generateDocId();
   const path = `motoristas/${id}`;
+  const nowIso = new Date().toISOString().slice(0, 19) + 'Z';
   const payload = {
     ownerUid: uid,
     nomeCompleto: clip(input.nomeCompleto, 200) || 'Motorista Sem Nome',
@@ -302,6 +303,9 @@ export async function createMotorista(
     proprietarioId: clip(input.proprietarioId, 128),
     situacaoCadastral: input.situacaoCadastral,
     observacoes: clip(input.observacoes, 500),
+    rotaPadrao: clip(input.rotaPadrao, 160),
+    valorDiariaPadrao: Math.min(clampMoney(input.valorDiariaPadrao), 1000000),
+    statusAtualizadoEm: nowIso,
   };
   const camposPendentes = computeMotoristaPendingFields(payload).slice(0, 15);
 
@@ -334,10 +338,19 @@ export async function updateMotorista(
       | 'proprietarioId'
       | 'situacaoCadastral'
       | 'observacoes'
+      | 'rotaPadrao'
+      | 'valorDiariaPadrao'
     >
   >
 ): Promise<void> {
   const path = `motoristas/${id}`;
+  const statusChanged =
+    patch.situacaoCadastral !== undefined &&
+    patch.situacaoCadastral !== current.situacaoCadastral;
+  const nextStatusTimestamp = statusChanged
+    ? new Date().toISOString().slice(0, 19) + 'Z'
+    : current.statusAtualizadoEm || '';
+
   const merged: Motorista = {
     ...current,
     ...patch,
@@ -360,6 +373,13 @@ export async function updateMotorista(
     proprietarioId:
       patch.proprietarioId !== undefined ? clip(patch.proprietarioId, 128) : current.proprietarioId,
     observacoes: patch.observacoes !== undefined ? clip(patch.observacoes, 500) : current.observacoes || '',
+    rotaPadrao:
+      patch.rotaPadrao !== undefined ? clip(patch.rotaPadrao, 160) : current.rotaPadrao || '',
+    valorDiariaPadrao:
+      patch.valorDiariaPadrao !== undefined
+        ? Math.min(clampMoney(patch.valorDiariaPadrao), 1000000)
+        : Math.min(clampMoney(current.valorDiariaPadrao), 1000000),
+    statusAtualizadoEm: nextStatusTimestamp,
   };
   const camposPendentes = computeMotoristaPendingFields(merged).slice(0, 15);
 
@@ -375,6 +395,9 @@ export async function updateMotorista(
       proprietarioId: merged.proprietarioId,
       situacaoCadastral: merged.situacaoCadastral,
       observacoes: merged.observacoes || '',
+      rotaPadrao: merged.rotaPadrao || '',
+      valorDiariaPadrao: merged.valorDiariaPadrao ?? 0,
+      statusAtualizadoEm: nextStatusTimestamp,
       camposPendentes,
       updatedAt: serverTimestamp(),
     });
@@ -530,6 +553,8 @@ export async function createDocumento(
       camposPendentes: (input.camposPendentes || []).map((c) => clip(c, 60)).slice(0, 15),
       resumoExtracao: clip(input.resumoExtracao, 600),
       observacoes: clip(input.observacoes, 500),
+      ...(input.arquivoUrl ? { arquivoUrl: clip(input.arquivoUrl, 1200) } : {}),
+      ...(input.storagePath ? { storagePath: clip(input.storagePath, 300) } : {}),
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
@@ -581,6 +606,9 @@ export async function updateSituacaoByEntity(
   try {
     await updateDoc(doc(db, collectionName, id), {
       situacaoCadastral: situacao,
+      ...(entidadeTipo === 'motorista'
+        ? { statusAtualizadoEm: new Date().toISOString().slice(0, 19) + 'Z' }
+        : {}),
       updatedAt: serverTimestamp(),
     });
   } catch (error) {

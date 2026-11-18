@@ -77,6 +77,8 @@ export function ManualEntryModal({
   const [motValidade, setMotValidade] = useState('');
   const [motTelefone, setMotTelefone] = useState('');
   const [motPlaca, setMotPlaca] = useState('');
+  const [motRotaPadrao, setMotRotaPadrao] = useState('');
+  const [motValorDiariaPadrao, setMotValorDiariaPadrao] = useState('');
   const [motPropId, setMotPropId] = useState('');
 
   // Veiculo state
@@ -202,6 +204,8 @@ export function ManualEntryModal({
           validadeCnh: motValidade,
           telefone: motTelefone,
           placa: motPlaca,
+          rotaPadrao: motRotaPadrao,
+          valorDiariaPadrao: Number(motValorDiariaPadrao.replace(',', '.')) || 0,
           proprietarioId: motPropId,
           situacaoCadastral: computedSituacao,
           observacoes,
@@ -517,6 +521,28 @@ export function ManualEntryModal({
                     </option>
                   ))}
                 </datalist>
+              </div>
+              <div>
+                <label className={labelCls}>Rota Padrão (Opcional)</label>
+                <input
+                  type="text"
+                  value={motRotaPadrao}
+                  onChange={(e) => setMotRotaPadrao(e.target.value)}
+                  placeholder="Ex.: DHL Cajamar · Grande SP"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Diária Padrão (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={motValorDiariaPadrao}
+                  onChange={(e) => setMotValorDiariaPadrao(e.target.value)}
+                  placeholder="0,00"
+                  className={`${inputCls} font-mono`}
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className={labelCls}>Proprietário Vinculado</label>

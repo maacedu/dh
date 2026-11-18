@@ -9,6 +9,7 @@ import type {
 } from '../types/fleet';
 import {
   evaluateDateStatus,
+  formatIsoDateTimePtBr,
   SITUACAO_LABELS,
   suggestSituacaoMotorista,
   suggestSituacaoVeiculo,
@@ -78,6 +79,10 @@ export function EditEntityModal({
     if (initMot.placa) return initMot.placa;
     return veiculos.find((v) => v.motoristaId === initMot.id)?.placa ?? '';
   });
+  const [motRotaPadrao, setMotRotaPadrao] = useState(initMot?.rotaPadrao ?? '');
+  const [motValorDiariaPadrao, setMotValorDiariaPadrao] = useState(
+    initMot?.valorDiariaPadrao ? String(initMot.valorDiariaPadrao) : ''
+  );
   const [motPropId, setMotPropId] = useState(
     initMot && propIdsSet.has(initMot.proprietarioId) ? initMot.proprietarioId : ''
   );
@@ -178,6 +183,8 @@ export function EditEntityModal({
           validadeCnh: motValidade,
           telefone: motTelefone,
           placa: motPlaca,
+          rotaPadrao: motRotaPadrao,
+          valorDiariaPadrao: Number(motValorDiariaPadrao.replace(',', '.')) || 0,
           proprietarioId: safePropId,
           situacaoCadastral: situacao,
           observacoes,
@@ -324,6 +331,14 @@ export function EditEntityModal({
                 );
               })}
             </div>
+            {entity.type === 'motorista' && entity.data.statusAtualizadoEm && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Última alteração de status:{' '}
+                <span className="font-mono">
+                  {formatIsoDateTimePtBr(entity.data.statusAtualizadoEm)}
+                </span>
+              </p>
+            )}
           </div>
 
           {entity.type === 'motorista' && (
@@ -413,6 +428,28 @@ export function EditEntityModal({
                     </option>
                   ))}
                 </datalist>
+              </div>
+              <div>
+                <label className={labelCls}>Rota Padrão (Opcional)</label>
+                <input
+                  type="text"
+                  value={motRotaPadrao}
+                  onChange={(e) => setMotRotaPadrao(e.target.value)}
+                  placeholder="Ex.: DHL Cajamar · Grande SP"
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Diária Padrão (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={motValorDiariaPadrao}
+                  onChange={(e) => setMotValorDiariaPadrao(e.target.value)}
+                  placeholder="0,00"
+                  className={`${inputCls} font-mono`}
+                />
               </div>
               <div className="sm:col-span-2">
                 <label className={labelCls}>Proprietário Vinculado</label>

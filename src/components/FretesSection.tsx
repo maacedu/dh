@@ -3,8 +3,10 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  FileDown,
   Pencil,
   Plus,
+  Receipt,
   Route,
   Trash2,
   Users,
@@ -12,16 +14,20 @@ import {
   X,
 } from 'lucide-react';
 import type {
+  CategoriaFinanceira,
   DiaTrabalhado,
   Frete,
   Motorista,
   Proprietario,
   StatusDiaTrabalhado,
+  StatusFinanceiro,
   StatusFrete,
   TurnoTrabalho,
   Veiculo,
 } from '../types/fleet';
 import {
+  DEFAULT_CATEGORIAS_FINANCEIRAS,
+  exportWorkdaysPdf,
   formatBrl,
   formatDatePtBr,
   getTodayIso,
@@ -31,6 +37,7 @@ import {
 } from '../lib/compliance';
 import {
   createDiaTrabalhado,
+  createLancamentoFinanceiro,
   deleteDiaTrabalhado,
   deleteFrete,
   updateDiaTrabalhado,
@@ -46,6 +53,7 @@ interface FretesSectionProps {
   proprietarios: Proprietario[];
   motoristas: Motorista[];
   veiculos: Veiculo[];
+  categoriasFinanceiras?: CategoriaFinanceira[];
   searchQuery: string;
   onNewFrete: () => void;
   onToast: (type: 'success' | 'error', text: string) => void;
@@ -178,6 +186,7 @@ export function FretesSection({
   proprietarios,
   motoristas,
   veiculos,
+  categoriasFinanceiras = [],
   searchQuery,
   onNewFrete,
   onToast,
@@ -204,6 +213,18 @@ export function FretesSection({
   const [formObs, setFormObs] = useState('');
   const [savingDia, setSavingDia] = useState(false);
   const [diaFormError, setDiaFormError] = useState('');
+
+  // Financial Closing Modal state
+  const [closingModalOpen, setClosingModalOpen] = useState(false);
+  const [closeMotId, setCloseMotId] = useState('');
+  const [closePeriod, setClosePeriod] = useState<'mes' | 'quinzena1' | 'quinzena2'>('mes');
+  const [closeCategoria, setCloseCategoria] = useState('Pagamento Motorista');
+  const [closeStatus, setCloseStatus] = useState<StatusFinanceiro>('pendente');
+  const [closeDueDate, setCloseDueDate] = useState(getTodayIso());
+  const [closeValorOverride, setCloseValorOverride] = useState('');
+  const [closeObs, setCloseObs] = useState('');
+  const [closingBusy, setClosingBusy] = useState(false);
+  const [closingError, setClosingError] = useState('');
 
   const propMap = useMemo(() => new Map(proprietarios.map((p) => [p.id, p])), [proprietarios]);
   const motMap = useMemo(() => new Map(motoristas.map((m) => [m.id, m])), [motoristas]);
@@ -345,6 +366,133 @@ export function FretesSection({
     });
   }, [fretes, freteStatusFilter, searchQuery, propMap, motMap, veiMap]);
 
+  const closingCategories = useMemo(() => {
+    const names = new Set<string>(DEFAULT_CATEGORIAS_FINANCEIRAS.map((c) => c.nome));
+    for (const c of categoriasFinanceiras) {
+      if (c.nome) names.add(c.nome);
+    }
+    return Array.from(names);
+  }, [categoriasFinanceiras]);
+
+  function getPeriodDiasForDriver(motId: string, period: 'mes' | 'quinzena1' | 'quinzena2') {
+    return diasNoMes.filter((d) => {
+      if (d.motoristaId !== motId) return false;
+      if (period === 'mes') return true;
+      const dayNum = Number(d.data.slice(8, 10));
+      if (period === 'quinzena1') return dayNum >= 1 && dayNum <= 15;
+      return dayNum >= 16;
+    });
+  }
+
+  function syncClosingTotal(motId: string, period: 'mes' | 'quinzena1' | 'quinzena2') {
+    if (!motId) {
+      setCloseValorOverride('0');
+      return;
+    }
+    const items = getPeriodDiasForDriver(motId, period);
+    const total = items.reduce((acc, item) => acc + (item.valorDiaria || 0), 0);
+    setCloseValorOverride(String(Math.round(total * 100) / 100));
+  }
+
+  function openClosingModal(prefillMotId?: string) {
+    setClosingError('');
+    const targetMotId =
+      prefillMotId ||
+      (motoristaFilter !== 'todos' ? motoristaFilter : motoristas[0]?.id || '');
+    setCloseMotId(targetMotId);
+    setClosePeriod('mes');
+    setCloseCategoria('Pagamento Motorista');
+    setCloseStatus('pendente');
+    setCloseDueDate(getTodayIso());
+    setCloseObs('');
+    syncClosingTotal(targetMotId, 'mes');
+    setClosingModalOpen(true);
+  }
+
+  async function handleConfirmClosing(e: FormEvent) {
+    e.preventDefault();
+    setClosingError('');
+    if (!closeMotId || !motMap.has(closeMotId)) {
+      setClosingError('Selecione um motorista cadastrado para gerar o repasse.');
+      return;
+    }
+    const numericVal = Number(closeValorOverride.replace(',', '.'));
+    if (!Number.isFinite(numericVal) || numericVal <= 0) {
+      setClosingError('O valor total do fechamento deve ser maior que zero.');
+      return;
+    }
+
+    const driver = motMap.get(closeMotId)!;
+    const periodLabel =
+      closePeriod === 'mes'
+        ? 'Mês Completo'
+        : closePeriod === 'quinzena1'
+          ? '1ª Quinzena (01–15)'
+          : '2ª Quinzena (16–31)';
+    const periodDias = getPeriodDiasForDriver(closeMotId, closePeriod);
+    const workedDays = periodDias.filter((d) => d.status === 'trabalhado').length;
+    const linkedVei = motLinkedVehicleMap.get(closeMotId);
+    const safePropId =
+      driver.proprietarioId && propMap.has(driver.proprietarioId) ? driver.proprietarioId : '';
+    const safeVeiId = linkedVei && veiMap.has(linkedVei.id) ? linkedVei.id : '';
+
+    setClosingBusy(true);
+    try {
+      await createLancamentoFinanceiro(uid, {
+        descricao: `Fechamento Diárias · ${driver.nomeCompleto} (${periodLabel} - ${getMonthLabel(selectedMonth)})`,
+        tipo: 'repasse',
+        categoria: closeCategoria || 'Pagamento Motorista',
+        valor: numericVal,
+        dataVencimento: closeDueDate,
+        dataPagamento: closeStatus === 'pago' ? closeDueDate || getTodayIso() : '',
+        status: closeStatus,
+        proprietarioId: safePropId,
+        motoristaId: closeMotId,
+        veiculoId: safeVeiId,
+        observacoes:
+          closeObs.trim() ||
+          `Gerado automaticamente a partir de ${workedDays} dia(s) trabalhado(s) em ${getMonthLabel(selectedMonth)}.`,
+      });
+      onToast(
+        'success',
+        `Repasse de ${formatBrl(numericVal)} para ${driver.nomeCompleto} lançado no Financeiro.`
+      );
+      setClosingModalOpen(false);
+    } catch (err) {
+      setClosingError(
+        err instanceof Error ? err.message : 'Erro ao lançar fechamento no Financeiro.'
+      );
+    } finally {
+      setClosingBusy(false);
+    }
+  }
+
+  function handleDownloadMonthlyPdf(driver?: Motorista | null, customPeriod?: 'mes' | 'quinzena1' | 'quinzena2') {
+    const period = customPeriod || 'mes';
+    const periodLabel =
+      period === 'mes'
+        ? 'Mês Completo'
+        : period === 'quinzena1'
+          ? '1ª Quinzena (01–15)'
+          : '2ª Quinzena (16–31)';
+
+    const sourceDias = driver
+      ? getPeriodDiasForDriver(driver.id, period)
+      : diasNoMes.filter((d) => motoristaFilter === 'todos' || d.motoristaId === motoristaFilter);
+
+    exportWorkdaysPdf({
+      monthLabel: getMonthLabel(selectedMonth),
+      yearMonth: selectedMonth,
+      periodLabel,
+      dias: sourceDias,
+      motorista: driver || (motoristaFilter !== 'todos' ? motMap.get(motoristaFilter) || null : null),
+      motoristas,
+      proprietarios,
+      veiculos,
+    });
+    onToast('success', 'Comprovante PDF gerado com sucesso.');
+  }
+
   function applyDriverDefaults(motId: string) {
     setFormMotId(motId);
     const mot = motMap.get(motId);
@@ -354,11 +502,15 @@ export function FretesSection({
     setFormPropId(safeProp);
     setFormVeiId(linkedVei ? linkedVei.id : '');
     setFormPlaca((mot.placa || linkedVei?.placa || '').toUpperCase());
+    setFormRota(mot.rotaPadrao || '');
+    setFormValorDiaria(mot.valorDiariaPadrao ? String(mot.valorDiariaPadrao) : '');
   }
 
   function openNewWorkdayModal(prefillMotId?: string, prefillDate?: string) {
     setEditingDia(null);
     setDiaFormError('');
+    setFormRota('');
+    setFormValorDiaria('');
     const defaultMotId =
       prefillMotId ||
       (motoristaFilter !== 'todos' ? motoristaFilter : motoristas[0]?.id || '');
@@ -375,9 +527,7 @@ export function FretesSection({
       prefillDate || (today.startsWith(selectedMonth) ? today : `${selectedMonth}-01`);
     setFormDates([initialDate]);
     setFormSingleDate(initialDate);
-    setFormRota('');
     setFormTurno('dia_completo');
-    setFormValorDiaria('');
     setFormStatus('trabalhado');
     setFormObs('');
     setWorkdayModalOpen(true);
@@ -651,6 +801,28 @@ export function FretesSection({
 
             <button
               type="button"
+              onClick={() => handleDownloadMonthlyPdf(null)}
+              disabled={diasNoMes.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300/90 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] disabled:opacity-45 whitespace-nowrap"
+              title="Baixar comprovante mensal em PDF"
+            >
+              <FileDown className="h-3.5 w-3.5" />
+              PDF Folha
+            </button>
+
+            <button
+              type="button"
+              onClick={() => openClosingModal()}
+              disabled={motoristas.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/35 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-45 whitespace-nowrap"
+              title="Fechar diárias e lançar repasse no Financeiro"
+            >
+              <Receipt className="h-3.5 w-3.5" />
+              Gerar Repasse
+            </button>
+
+            <button
+              type="button"
               onClick={() => openNewWorkdayModal()}
               className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white shadow-xs hover:bg-blue-500 whitespace-nowrap"
             >
@@ -765,6 +937,7 @@ export function FretesSection({
                         Dias
                       </th>
                       <th className="px-3 py-2 text-right whitespace-nowrap">Total (R$)</th>
+                      <th className="px-3 py-2 text-right whitespace-nowrap">Fechamento</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200/75 dark:divide-white/[0.06]">
@@ -830,16 +1003,23 @@ export function FretesSection({
                                   }
                                   title={
                                     badge
-                                      ? `${m.nomeCompleto} (${formatDatePtBr(col.dateStr)}): ${badge.title}`
+                                      ? `${m.nomeCompleto} (${formatDatePtBr(col.dateStr)}): ${badge.title}${
+                                          entries.length > 1 ? ` (+${entries.length - 1} registro)` : ''
+                                        }`
                                       : `Registrar dia ${formatDatePtBr(col.dateStr)} para ${m.nomeCompleto}`
                                   }
-                                  className={`inline-flex h-6 w-6 items-center justify-center rounded border font-mono text-[10px] font-semibold transition-colors ${
+                                  className={`relative inline-flex h-6 w-6 items-center justify-center rounded border font-mono text-[10px] font-semibold transition-colors ${
                                     badge
                                       ? badge.classes
                                       : 'border-transparent text-slate-300 dark:text-slate-600 hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400'
                                   }`}
                                 >
                                   {badge ? badge.code : '·'}
+                                  {entries.length > 1 && (
+                                    <span className="absolute -right-1 -top-1 flex h-3 w-3 items-center justify-center rounded-full bg-blue-600 text-[8px] font-bold text-white">
+                                      {entries.length}
+                                    </span>
+                                  )}
                                 </button>
                               </td>
                             );
@@ -849,6 +1029,30 @@ export function FretesSection({
                           </td>
                           <td className="px-3 py-2 text-right font-mono font-medium text-emerald-700 dark:text-emerald-400 tabular-nums whitespace-nowrap">
                             {formatBrl(driverTotal)}
+                          </td>
+                          <td className="px-3 py-2 text-right whitespace-nowrap">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadMonthlyPdf(m)}
+                                disabled={driverMonthLogs.length === 0}
+                                title={`Baixar PDF de ${m.nomeCompleto}`}
+                                aria-label={`Baixar PDF de ${m.nomeCompleto}`}
+                                className="rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] p-1 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/[0.06] disabled:opacity-35"
+                              >
+                                <FileDown className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openClosingModal(m.id)}
+                                disabled={driverMonthLogs.length === 0}
+                                title={`Gerar repasse financeiro de ${m.nomeCompleto}`}
+                                className="inline-flex items-center gap-1 rounded-md border border-emerald-500/35 bg-emerald-500/10 px-2 py-1 text-[10px] font-medium text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20 disabled:opacity-35"
+                              >
+                                <Receipt className="h-3 w-3" />
+                                Repasse
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -916,14 +1120,22 @@ export function FretesSection({
                         d.proprietarioId && propMap.has(d.proprietarioId) ? d.proprietarioId : '';
                       const safeVeiId =
                         d.veiculoId && veiMap.has(d.veiculoId) ? d.veiculoId : '';
-                      const saveDia = (patch: Partial<DiaTrabalhado>) =>
-                        updateDiaTrabalhado(d.id, {
-                          ...(d.proprietarioId && !propMap.has(d.proprietarioId)
-                            ? { proprietarioId: '' }
-                            : {}),
-                          ...(d.veiculoId && !veiMap.has(d.veiculoId) ? { veiculoId: '' } : {}),
-                          ...patch,
-                        });
+                      const saveDia = async (patch: Partial<DiaTrabalhado>) => {
+                        try {
+                          await updateDiaTrabalhado(d.id, {
+                            ...(d.proprietarioId && !propMap.has(d.proprietarioId)
+                              ? { proprietarioId: '' }
+                              : {}),
+                            ...(d.veiculoId && !veiMap.has(d.veiculoId) ? { veiculoId: '' } : {}),
+                            ...patch,
+                          });
+                        } catch (err) {
+                          onToast(
+                            'error',
+                            err instanceof Error ? err.message : 'Erro ao atualizar dia trabalhado.'
+                          );
+                        }
+                      };
                       return (
                         <tr
                           key={d.id}
@@ -1051,8 +1263,17 @@ export function FretesSection({
                               <button
                                 type="button"
                                 onClick={async () => {
-                                  await deleteDiaTrabalhado(d.id);
-                                  onToast('success', 'Registro de dia trabalhado removido.');
+                                  try {
+                                    await deleteDiaTrabalhado(d.id);
+                                    onToast('success', 'Registro de dia trabalhado removido.');
+                                  } catch (err) {
+                                    onToast(
+                                      'error',
+                                      err instanceof Error
+                                        ? err.message
+                                        : 'Erro ao excluir dia trabalhado.'
+                                    );
+                                  }
                                 }}
                                 className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                                 title="Excluir registro"
@@ -1233,8 +1454,15 @@ export function FretesSection({
                         <button
                           type="button"
                           onClick={async () => {
-                            await deleteFrete(f.id);
-                            onToast('success', 'Frete removido.');
+                            try {
+                              await deleteFrete(f.id);
+                              onToast('success', 'Frete removido.');
+                            } catch (err) {
+                              onToast(
+                                'error',
+                                err instanceof Error ? err.message : 'Erro ao excluir frete.'
+                              );
+                            }
                           }}
                           className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
                           title="Excluir frete"
@@ -1341,7 +1569,14 @@ export function FretesSection({
                         </button>
                         <button
                           type="button"
-                          onClick={() => setFormDates([getTodayIso()])}
+                          onClick={() => {
+                            const today = getTodayIso();
+                            const todayMonth = today.slice(0, 7);
+                            if (selectedMonth !== todayMonth) {
+                              setSelectedMonth(todayMonth);
+                            }
+                            setFormDates([today]);
+                          }}
                           className="rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0F1520] px-2.5 py-1 text-[11px] font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/[0.06]"
                         >
                           Hoje
@@ -1511,10 +1746,17 @@ export function FretesSection({
                       disabled={savingDia}
                       onClick={async () => {
                         setSavingDia(true);
+                        setDiaFormError('');
                         try {
                           await deleteDiaTrabalhado(editingDia.id);
                           onToast('success', 'Registro de dia trabalhado removido.');
                           setWorkdayModalOpen(false);
+                        } catch (err) {
+                          setDiaFormError(
+                            err instanceof Error
+                              ? err.message
+                              : 'Erro ao excluir registro de dia trabalhado.'
+                          );
                         } finally {
                           setSavingDia(false);
                         }
@@ -1545,6 +1787,203 @@ export function FretesSection({
                       : editingDia
                         ? 'Salvar Alterações'
                         : `Registrar ${formDates.length || 0} Dia(s)`}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Fechamento Automático para o Financeiro */}
+      {closingModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-xs">
+          <div className="flex max-h-[92vh] w-full max-w-lg flex-col rounded-xl border border-slate-200/90 dark:border-white/[0.09] bg-white dark:bg-[#0F1520] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200/80 dark:border-white/[0.07] px-6 py-4">
+              <div>
+                <h2 className="text-base font-semibold text-slate-900 dark:text-white">
+                  Fechamento de Diárias para o Financeiro
+                </h2>
+                <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+                  Calcula os dias lançados em {getMonthLabel(selectedMonth)} e cria o repasse no módulo Financeiro.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClosingModalOpen(false)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-white/[0.06] hover:text-slate-700 dark:hover:text-white"
+                aria-label="Fechar fechamento"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form onSubmit={handleConfirmClosing} className="flex-1 space-y-4 overflow-y-auto p-6">
+              {closingError && (
+                <div className="rounded-lg border border-red-200 dark:border-red-900/60 bg-red-50 dark:bg-red-950/50 px-3.5 py-2.5 text-xs text-red-700 dark:text-red-300">
+                  {closingError}
+                </div>
+              )}
+
+              <div>
+                <label className={modalLabelCls}>Motorista *</label>
+                <select
+                  value={closeMotId}
+                  onChange={(e) => {
+                    const nextId = e.target.value;
+                    setCloseMotId(nextId);
+                    syncClosingTotal(nextId, closePeriod);
+                  }}
+                  className={modalInputCls}
+                  required
+                >
+                  <option value="">Selecionar motorista...</option>
+                  {motoristas.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nomeCompleto} {m.placa ? `(${m.placa})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className={modalLabelCls}>Período de Apuração</label>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      { id: 'mes', label: 'Mês Completo' },
+                      { id: 'quinzena1', label: '1ª Quinzena (01–15)' },
+                      { id: 'quinzena2', label: '2ª Quinzena (16–31)' },
+                    ] as const
+                  ).map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => {
+                        setClosePeriod(p.id);
+                        syncClosingTotal(closeMotId, p.id);
+                      }}
+                      className={`rounded-lg border px-2 py-2 text-[11px] font-medium transition-colors ${
+                        closePeriod === p.id
+                          ? 'border-blue-600 bg-blue-600/15 text-blue-700 dark:text-blue-300'
+                          : 'border-slate-200 dark:border-white/[0.08] bg-slate-50 dark:bg-[#0B0F17] text-slate-600 dark:text-slate-300'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {(() => {
+                const items = closeMotId ? getPeriodDiasForDriver(closeMotId, closePeriod) : [];
+                const worked = items.filter((d) => d.status === 'trabalhado').length;
+                const extras = items.filter(
+                  (d) => d.status === 'trabalhado' && d.turno === 'extra'
+                ).length;
+                const calcTotal = items.reduce((acc, d) => acc + (d.valorDiaria || 0), 0);
+                return (
+                  <div className="rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-4 py-3 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="font-medium text-emerald-800 dark:text-emerald-300">
+                        {worked} dia(s) trabalhado(s) · {extras} extra(s) · {items.length} registro(s)
+                      </span>
+                      <span className="font-mono font-bold text-emerald-800 dark:text-emerald-200">
+                        Calculado: {formatBrl(calcTotal)}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className={modalLabelCls}>Valor do Repasse (R$) *</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={closeValorOverride}
+                    onChange={(e) => setCloseValorOverride(e.target.value)}
+                    className={`${modalInputCls} font-mono`}
+                    required
+                  />
+                </div>
+                <div>
+                  <label className={modalLabelCls}>Categoria Financeira</label>
+                  <select
+                    value={closeCategoria}
+                    onChange={(e) => setCloseCategoria(e.target.value)}
+                    className={modalInputCls}
+                  >
+                    {closingCategories.map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={modalLabelCls}>Vencimento / Pagamento</label>
+                  <input
+                    type="date"
+                    value={closeDueDate}
+                    onChange={(e) => setCloseDueDate(e.target.value)}
+                    className={`${modalInputCls} font-mono`}
+                  />
+                </div>
+                <div>
+                  <label className={modalLabelCls}>Status no Financeiro</label>
+                  <select
+                    value={closeStatus}
+                    onChange={(e) => setCloseStatus(e.target.value as StatusFinanceiro)}
+                    className={modalInputCls}
+                  >
+                    <option value="pendente">Em Aberto</option>
+                    <option value="pago">Pago</option>
+                  </select>
+                </div>
+                <div className="sm:col-span-2">
+                  <label className={modalLabelCls}>Observações (Opcional)</label>
+                  <input
+                    type="text"
+                    value={closeObs}
+                    onChange={(e) => setCloseObs(e.target.value)}
+                    placeholder="Ex.: Fechamento referente à rota DHL"
+                    className={modalInputCls}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200/80 dark:border-white/[0.07] pt-4">
+                <button
+                  type="button"
+                  disabled={!closeMotId}
+                  onClick={() => {
+                    const mot = motMap.get(closeMotId);
+                    if (mot) handleDownloadMonthlyPdf(mot, closePeriod);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-3 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.06] disabled:opacity-45 whitespace-nowrap"
+                >
+                  <FileDown className="h-3.5 w-3.5" />
+                  Comprovante PDF
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setClosingModalOpen(false)}
+                    className="rounded-lg border border-slate-300 dark:border-white/[0.1] bg-white dark:bg-white/[0.04] px-4 py-2 text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] whitespace-nowrap"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={closingBusy || !closeMotId}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-4 py-2 text-xs font-medium text-white shadow-xs hover:bg-emerald-500 disabled:opacity-50 whitespace-nowrap"
+                  >
+                    <Receipt className="h-3.5 w-3.5" />
+                    {closingBusy ? 'Lançando...' : 'Lançar no Financeiro'}
                   </button>
                 </div>
               </div>

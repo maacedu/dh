@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link2, Truck, Unlink, UserCheck, X } from 'lucide-react';
+import { ExternalLink, Link2, Truck, Unlink, UserCheck, X } from 'lucide-react';
 import type { Documento, Motorista, Proprietario, Veiculo } from '../types/fleet';
 import { formatDatePtBr } from '../lib/compliance';
 import { updateMotorista, updateVeiculo } from '../lib/fleetService';
@@ -312,9 +312,22 @@ export function OwnerDetailDrawer({
                         </span>
                       </p>
                     </div>
-                    <DocStatusIndicator status={d.statusDocumento} />
-                  </div>
-                ))}
+                      <div className="flex items-center gap-2.5 shrink-0">
+                        {d.arquivoUrl && (
+                          <a
+                            href={d.arquivoUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-white/[0.1] px-2 py-1 text-[11px] font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                          >
+                            <ExternalLink className="h-3 w-3" />
+                            Abrir
+                          </a>
+                        )}
+                        <DocStatusIndicator status={d.statusDocumento} />
+                      </div>
+                    </div>
+                  ))}
               </div>
             )}
           </section>

@@ -32,6 +32,7 @@ import {
   updateProprietario,
   updateVeiculo,
 } from '../lib/fleetService';
+import { uploadFleetDocumentFile } from '../lib/firebase';
 
 interface DocumentUploadModalProps {
   user: User;
@@ -492,6 +493,8 @@ export function DocumentUploadModal({
         ? evaluateDateStatus(effectiveExpiry)
         : 'em_analise';
 
+      const storageResult = await uploadFleetDocumentFile(user.uid, selectedFile);
+
       await createDocumento(user.uid, {
         tipoDocumento: tipoDoc,
         nomeArquivo: selectedFile.name,
@@ -504,9 +507,14 @@ export function DocumentUploadModal({
         camposPendentes: [],
         resumoExtracao,
         observacoes: '',
+        arquivoUrl: storageResult.arquivoUrl,
+        storagePath: storageResult.storagePath,
       });
 
-      onSaved(`Documento "${selectedFile.name}" processado e cadastro salvo com sucesso.`);
+      const savedMsg = storageResult.arquivoUrl
+        ? `Documento "${selectedFile.name}" processado, arquivo original salvo e cadastro atualizado.`
+        : `Documento "${selectedFile.name}" processado e cadastro salvo (sem cópia externa no Storage).`;
+      onSaved(savedMsg);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao salvar os dados extraídos.');

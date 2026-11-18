@@ -5,6 +5,7 @@ import {
   CalendarDays,
   CheckCircle2,
   Download,
+  ExternalLink,
   Eye,
   EyeOff,
   FileCheck2,
@@ -34,12 +35,18 @@ import {
   signOut,
   type User,
 } from 'firebase/auth';
-import { auth, firebaseProjectId, testFirestoreConnection } from './lib/firebase';
+import {
+  auth,
+  deleteFleetDocumentFile,
+  firebaseProjectId,
+  testFirestoreConnection,
+} from './lib/firebase';
 import {
   evaluateDateStatus,
   exportFleetToExcel,
   formatBrl,
   formatDatePtBr,
+  formatIsoDateTimePtBr,
   generatePendencias,
   getTodayIso,
   SITUACAO_LABELS,
@@ -194,6 +201,9 @@ export default function App() {
   const [tipoVeiculoFilter, setTipoVeiculoFilter] = useState<'todos' | TipoVeiculo>('todos');
   const [proprietarioFilter, setProprietarioFilter] = useState<string>('todos');
   const [pendenciaTab, setPendenciaTab] = useState<'documentos' | 'vencimentos'>('documentos');
+  const [vencimentoWindowFilter, setVencimentoWindowFilter] = useState<
+    'todos' | 'vencidos' | '7d' | '15d' | '30d'
+  >('todos');
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [manualModalMode, setManualModalMode] = useState<ManualModalMode | null>(null);
@@ -502,13 +512,32 @@ export default function App() {
 
   const filteredPendencias = useMemo(() => {
     return pendencias.filter((p) => {
+      if (vencimentoWindowFilter === 'vencidos' && p.categoria !== 'vencido') return false;
+      if (vencimentoWindowFilter === '7d') {
+        if (p.categoria === 'vencido') return false;
+        if (p.diasRestantes === undefined || p.diasRestantes < 0 || p.diasRestantes > 7) {
+          return false;
+        }
+      }
+      if (vencimentoWindowFilter === '15d') {
+        if (p.categoria === 'vencido') return false;
+        if (p.diasRestantes === undefined || p.diasRestantes < 0 || p.diasRestantes > 15) {
+          return false;
+        }
+      }
+      if (vencimentoWindowFilter === '30d') {
+        if (p.categoria === 'vencido') return false;
+        if (p.diasRestantes === undefined || p.diasRestantes < 0 || p.diasRestantes > 30) {
+          return false;
+        }
+      }
       if (!normalizedSearch) return true;
       return (
         p.entidadeTitulo.toLowerCase().includes(normalizedSearch) ||
         p.descricao.toLowerCase().includes(normalizedSearch)
       );
     });
-  }, [pendencias, normalizedSearch]);
+  }, [pendencias, vencimentoWindowFilter, normalizedSearch]);
 
   // Dashboard Metrics
   const kpis = useMemo(() => {
@@ -826,6 +855,8 @@ export default function App() {
         }
         showToast('success', 'Cadastro de proprietário excluído.');
       } else {
+        const docToDelete = documentos.find((d) => d.id === deleteTarget.id);
+        await deleteFleetDocumentFile(docToDelete?.storagePath);
         await deleteDocumento(deleteTarget.id);
         showToast('success', 'Registro de documento excluído.');
       }
@@ -1477,13 +1508,17 @@ export default function App() {
                 <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                        <th className="px-3.5 py-3">Nome Completo</th>
+                        <th className="sticky left-0 z-10 min-w-[185px] border-r border-slate-200/80 dark:border-white/[0.07] bg-slate-50 dark:bg-[#111827] px-3.5 py-3">
+                          Nome Completo
+                        </th>
                         <th className="px-3.5 py-3">CPF</th>
                         <th className="px-3.5 py-3">CNH</th>
                         <th className="px-3.5 py-3">Cat.</th>
                         <th className="px-3.5 py-3">Validade CNH</th>
                         <th className="px-3.5 py-3">Telefone</th>
                         <th className="px-3.5 py-3">Placa</th>
+                        <th className="px-3.5 py-3">Rota Padrão</th>
+                        <th className="px-3.5 py-3">Diária Padrão</th>
                         <th className="px-3.5 py-3">Proprietário</th>
                         <th className="px-3.5 py-3">Situação</th>
                         <th className="px-3.5 py-3 text-right">Ações</th>
@@ -1493,7 +1528,7 @@ export default function App() {
                       {filteredMotoristas.length === 0 ? (
                         <tr>
                           <td
-                            colSpan={10}
+                            colSpan={12}
                             className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                           >
                             Nenhum motorista encontrado para os filtros aplicados.
@@ -1531,7 +1566,13 @@ export default function App() {
                                   : 'hover:bg-slate-50/90 dark:hover:bg-white/[0.025]'
                               }`}
                             >
-                              <td className="px-2.5 py-2 min-w-[180px]">
+                              <td
+                                className={`sticky left-0 z-10 min-w-[185px] border-r border-slate-200/80 dark:border-white/[0.07] px-2.5 py-2 ${
+                                  isApproved
+                                    ? 'bg-emerald-50 dark:bg-[#0D211B]'
+                                    : 'bg-white dark:bg-[#0F1520]'
+                                }`}
+                              >
                                 <EditableCell
                                   value={m.nomeCompleto}
                                   tone={cellTone}
@@ -1651,6 +1692,38 @@ export default function App() {
                                   }}
                                 />
                               </td>
+                              <td className="px-2.5 py-2 min-w-[155px]">
+                                <EditableCell
+                                  value={m.rotaPadrao || ''}
+                                  tone={cellTone}
+                                  placeholder="Definir rota"
+                                  onSave={async (val) => {
+                                    await saveMotPatch(
+                                      { rotaPadrao: val },
+                                      'Rota padrão atualizada.'
+                                    );
+                                  }}
+                                />
+                              </td>
+                              <td className="px-2.5 py-2 min-w-[115px]">
+                                <EditableCell
+                                  value={String(m.valorDiariaPadrao || 0)}
+                                  mono
+                                  tone={cellTone}
+                                  displayValue={
+                                    m.valorDiariaPadrao ? formatBrl(m.valorDiariaPadrao) : '—'
+                                  }
+                                  onSave={async (val) => {
+                                    const parsed = Number(val.replace(',', '.'));
+                                    if (Number.isFinite(parsed) && parsed >= 0) {
+                                      await saveMotPatch(
+                                        { valorDiariaPadrao: parsed },
+                                        'Diária padrão atualizada.'
+                                      );
+                                    }
+                                  }}
+                                />
+                              </td>
                               <td className="px-2.5 py-2 min-w-[160px]">
                                 <select
                                   value={safeOwnerId}
@@ -1674,7 +1747,7 @@ export default function App() {
                                   ))}
                                 </select>
                               </td>
-                              <td className="px-2.5 py-2 min-w-[160px]">
+                              <td className="px-2.5 py-2 min-w-[165px]">
                                 <div className="flex flex-col gap-1">
                                   <SituacaoIndicator situacao={m.situacaoCadastral} />
                                   <select
@@ -1701,6 +1774,17 @@ export default function App() {
                                       )
                                     )}
                                   </select>
+                                  {m.statusAtualizadoEm && (
+                                    <span
+                                      className={`font-mono text-[10px] ${
+                                        isApproved
+                                          ? 'text-emerald-700/75 dark:text-emerald-400/75'
+                                          : 'text-slate-400 dark:text-slate-500'
+                                      }`}
+                                    >
+                                      Alt.: {formatIsoDateTimePtBr(m.statusAtualizadoEm)}
+                                    </span>
+                                  )}
                                 </div>
                               </td>
                               <td className="px-3.5 py-2 text-right">
@@ -1801,7 +1885,9 @@ export default function App() {
                 <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                        <th className="px-3.5 py-3">Placa</th>
+                        <th className="sticky left-0 z-10 min-w-[105px] border-r border-slate-200/80 dark:border-white/[0.07] bg-slate-50 dark:bg-[#111827] px-3.5 py-3">
+                          Placa
+                        </th>
                         <th className="px-3.5 py-3">Marca</th>
                         <th className="px-3.5 py-3">Modelo</th>
                         <th className="px-3.5 py-3">Ano</th>
@@ -1827,17 +1913,42 @@ export default function App() {
                       ) : (
                         filteredVeiculos.map((v) => {
                           const crlvStatus = evaluateDateStatus(v.validadeCrlv);
+                          const safePropId =
+                            v.proprietarioId && propMap.has(v.proprietarioId)
+                              ? v.proprietarioId
+                              : '';
+                          const safeMotId =
+                            v.motoristaId && motMap.has(v.motoristaId) ? v.motoristaId : '';
+                          const saveVeiPatch = (
+                            patch: Parameters<typeof updateVeiculo>[2],
+                            msg?: string
+                          ) =>
+                            safeAction(
+                              () =>
+                                updateVeiculo(v.id, v, {
+                                  ...(patch.proprietarioId === undefined &&
+                                  v.proprietarioId !== safePropId
+                                    ? { proprietarioId: '' }
+                                    : {}),
+                                  ...(patch.motoristaId === undefined &&
+                                  v.motoristaId !== safeMotId
+                                    ? { motoristaId: '' }
+                                    : {}),
+                                  ...patch,
+                                }),
+                              msg
+                            );
                           return (
                             <tr
                               key={v.id}
                               className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-2.5 py-2 min-w-[100px]">
+                              <td className="sticky left-0 z-10 min-w-[105px] border-r border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0F1520] px-2.5 py-2">
                                 <EditableCell
                                   value={v.placa}
                                   mono
                                   onSave={async (val) => {
-                                    await updateVeiculo(v.id, v, { placa: val });
+                                    await saveVeiPatch({ placa: val }, 'Placa atualizada.');
                                   }}
                                 />
                               </td>
@@ -1845,7 +1956,7 @@ export default function App() {
                                 <EditableCell
                                   value={v.marca}
                                   onSave={async (val) => {
-                                    await updateVeiculo(v.id, v, { marca: val });
+                                    await saveVeiPatch({ marca: val }, 'Marca atualizada.');
                                   }}
                                 />
                               </td>
@@ -1853,7 +1964,7 @@ export default function App() {
                                 <EditableCell
                                   value={v.modelo}
                                   onSave={async (val) => {
-                                    await updateVeiculo(v.id, v, { modelo: val });
+                                    await saveVeiPatch({ modelo: val }, 'Modelo atualizado.');
                                   }}
                                 />
                               </td>
@@ -1862,7 +1973,7 @@ export default function App() {
                                   value={v.ano}
                                   mono
                                   onSave={async (val) => {
-                                    await updateVeiculo(v.id, v, { ano: val });
+                                    await saveVeiPatch({ ano: val }, 'Ano atualizado.');
                                   }}
                                 />
                               </td>
@@ -1871,7 +1982,7 @@ export default function App() {
                                   value={v.renavam}
                                   mono
                                   onSave={async (val) => {
-                                    await updateVeiculo(v.id, v, { renavam: val });
+                                    await saveVeiPatch({ renavam: val }, 'RENAVAM atualizado.');
                                   }}
                                 />
                               </td>
@@ -1879,9 +1990,10 @@ export default function App() {
                                 <select
                                   value={v.tipoVeiculo}
                                   onChange={async (e) => {
-                                    await updateVeiculo(v.id, v, {
-                                      tipoVeiculo: e.target.value as TipoVeiculo,
-                                    });
+                                    await saveVeiPatch(
+                                      { tipoVeiculo: e.target.value as TipoVeiculo },
+                                      'Tipo de veículo atualizado.'
+                                    );
                                   }}
                                   className={inlineSelectCls}
                                 >
@@ -1894,11 +2006,12 @@ export default function App() {
                               </td>
                               <td className="px-2.5 py-2 min-w-[155px]">
                                 <select
-                                  value={v.proprietarioId}
+                                  value={safePropId}
                                   onChange={async (e) => {
-                                    await updateVeiculo(v.id, v, {
-                                      proprietarioId: e.target.value,
-                                    });
+                                    await saveVeiPatch(
+                                      { proprietarioId: e.target.value },
+                                      'Proprietário do veículo atualizado.'
+                                    );
                                   }}
                                   className={inlineSelectCls}
                                 >
@@ -1912,11 +2025,12 @@ export default function App() {
                               </td>
                               <td className="px-2.5 py-2 min-w-[145px]">
                                 <select
-                                  value={v.motoristaId}
+                                  value={safeMotId}
                                   onChange={async (e) => {
-                                    await updateVeiculo(v.id, v, {
-                                      motoristaId: e.target.value,
-                                    });
+                                    await saveVeiPatch(
+                                      { motoristaId: e.target.value },
+                                      'Motorista do veículo atualizado.'
+                                    );
                                   }}
                                   className={inlineSelectCls}
                                 >
@@ -1939,10 +2053,13 @@ export default function App() {
                                       ...v,
                                       validadeCrlv: val,
                                     });
-                                    await updateVeiculo(v.id, v, {
-                                      validadeCrlv: val,
-                                      situacaoCadastral: nextSit,
-                                    });
+                                    await saveVeiPatch(
+                                      {
+                                        validadeCrlv: val,
+                                        situacaoCadastral: nextSit,
+                                      },
+                                      'Validade do CRLV atualizada.'
+                                    );
                                   }}
                                 />
                                 {crlvStatus === 'vencido' && (
@@ -1958,17 +2075,8 @@ export default function App() {
                                     value={v.situacaoCadastral}
                                     onChange={async (e) => {
                                       const nextSit = e.target.value as SituacaoCadastral;
-                                      await safeAction(
-                                        () =>
-                                          updateVeiculo(v.id, v, {
-                                            situacaoCadastral: nextSit,
-                                            ...(v.proprietarioId && !propMap.has(v.proprietarioId)
-                                              ? { proprietarioId: '' }
-                                              : {}),
-                                            ...(v.motoristaId && !motMap.has(v.motoristaId)
-                                              ? { motoristaId: '' }
-                                              : {}),
-                                          }),
+                                      await saveVeiPatch(
+                                        { situacaoCadastral: nextSit },
                                         `Status do veículo ${v.placa} atualizado.`
                                       );
                                     }}
@@ -2051,7 +2159,9 @@ export default function App() {
                 <table className="w-full border-collapse text-left text-xs">
                     <thead>
                       <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-                        <th className="px-3.5 py-3">Nome Completo / Razão Social</th>
+                        <th className="sticky left-0 z-10 min-w-[195px] border-r border-slate-200/80 dark:border-white/[0.07] bg-slate-50 dark:bg-[#111827] px-3.5 py-3">
+                          Nome Completo / Razão Social
+                        </th>
                         <th className="px-3.5 py-3">CPF / CNPJ</th>
                         <th className="px-3.5 py-3">Contato</th>
                         <th className="px-3.5 py-3">Motoristas (Cadastrados)</th>
@@ -2082,11 +2192,14 @@ export default function App() {
                               key={p.id}
                               className="transition-colors hover:bg-slate-50/90 dark:hover:bg-white/[0.025]"
                             >
-                              <td className="px-2.5 py-2 min-w-[190px]">
+                              <td className="sticky left-0 z-10 min-w-[195px] border-r border-slate-200/80 dark:border-white/[0.07] bg-white dark:bg-[#0F1520] px-2.5 py-2">
                                 <EditableCell
                                   value={p.nomeCompleto}
                                   onSave={async (val) => {
-                                    await updateProprietario(p.id, { nomeCompleto: val });
+                                    await safeAction(
+                                      () => updateProprietario(p.id, { nomeCompleto: val }),
+                                      'Nome do proprietário atualizado.'
+                                    );
                                   }}
                                 />
                               </td>
@@ -2095,7 +2208,10 @@ export default function App() {
                                   value={p.cpfCnpj}
                                   mono
                                   onSave={async (val) => {
-                                    await updateProprietario(p.id, { cpfCnpj: val });
+                                    await safeAction(
+                                      () => updateProprietario(p.id, { cpfCnpj: val }),
+                                      'CPF/CNPJ atualizado.'
+                                    );
                                   }}
                                 />
                               </td>
@@ -2103,7 +2219,10 @@ export default function App() {
                                 <EditableCell
                                   value={p.contato}
                                   onSave={async (val) => {
-                                    await updateProprietario(p.id, { contato: val });
+                                    await safeAction(
+                                      () => updateProprietario(p.id, { contato: val }),
+                                      'Contato atualizado.'
+                                    );
                                   }}
                                 />
                               </td>
@@ -2122,9 +2241,9 @@ export default function App() {
                                           <button
                                             type="button"
                                             onClick={async () => {
-                                              await updateMotorista(m.id, m, { proprietarioId: '' });
-                                              showToast(
-                                                'success',
+                                              await safeAction(
+                                                () =>
+                                                  updateMotorista(m.id, m, { proprietarioId: '' }),
                                                 `Motorista "${m.nomeCompleto}" desvinculado.`
                                               );
                                             }}
@@ -2145,11 +2264,11 @@ export default function App() {
                                       if (!motId) return;
                                       const target = motoristas.find((m) => m.id === motId);
                                       if (!target) return;
-                                      await updateMotorista(target.id, target, {
-                                        proprietarioId: p.id,
-                                      });
-                                      showToast(
-                                        'success',
+                                      await safeAction(
+                                        () =>
+                                          updateMotorista(target.id, target, {
+                                            proprietarioId: p.id,
+                                          }),
                                         `Motorista "${target.nomeCompleto}" vinculado a ${p.nomeCompleto}.`
                                       );
                                     }}
@@ -2298,11 +2417,42 @@ export default function App() {
               </div>
 
               {pendenciaTab === 'vencimentos' ? (
-                <ScrollableTableCard header="Documentos com validade vencida ou próxima do vencimento.">
+                <ScrollableTableCard
+                  header="Documentos com validade vencida ou próxima do vencimento."
+                  headerRight={
+                    <div className="flex flex-wrap items-center gap-1">
+                      {(
+                        [
+                          { id: 'todos', label: 'Todos' },
+                          { id: 'vencidos', label: 'Vencidos' },
+                          { id: '7d', label: 'Até 7d' },
+                          { id: '15d', label: 'Até 15d' },
+                          { id: '30d', label: 'Até 30d' },
+                        ] as const
+                      ).map((opt) => (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => setVencimentoWindowFilter(opt.id)}
+                          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors whitespace-nowrap ${
+                            vencimentoWindowFilter === opt.id
+                              ? opt.id === 'vencidos'
+                                ? 'bg-red-600 text-white'
+                                : 'bg-blue-600 text-white'
+                              : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200/70 dark:hover:bg-white/[0.06]'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  }
+                >
                   <table className="w-full border-collapse text-left text-xs">
                       <thead>
                         <tr className="border-b border-slate-200/80 dark:border-white/[0.07] bg-slate-50/90 dark:bg-white/[0.025] text-[11px] font-semibold text-slate-600 dark:text-slate-400">
                           <th className="px-4 py-3">Situação da Validade</th>
+                          <th className="px-4 py-3">Prazo</th>
                           <th className="px-4 py-3">Cadastro</th>
                           <th className="px-4 py-3">Identificação</th>
                           <th className="px-4 py-3">Detalhe do Vencimento</th>
@@ -2312,10 +2462,10 @@ export default function App() {
                         {filteredPendencias.length === 0 ? (
                           <tr>
                             <td
-                              colSpan={4}
+                              colSpan={5}
                               className="px-4 py-12 text-center text-xs text-slate-500 dark:text-slate-400"
                             >
-                              Nenhum documento vencido ou próximo do vencimento.
+                              Nenhum documento encontrado para este filtro de vencimento.
                             </td>
                           </tr>
                         ) : (
@@ -2331,8 +2481,27 @@ export default function App() {
                                   </span>
                                 ) : (
                                   <span className="text-slate-800 dark:text-white">
-                                    A Vencer (30d)
+                                    A Vencer
                                   </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 font-mono text-[11px] whitespace-nowrap">
+                                {pen.diasRestantes !== undefined ? (
+                                  <span
+                                    className={
+                                      pen.diasRestantes < 0
+                                        ? 'font-semibold text-red-700 dark:text-red-400'
+                                        : 'text-slate-700 dark:text-slate-200'
+                                    }
+                                  >
+                                    {pen.diasRestantes < 0
+                                      ? `${Math.abs(pen.diasRestantes)}d em atraso`
+                                      : pen.diasRestantes === 0
+                                        ? 'Vence hoje'
+                                        : `Em ${pen.diasRestantes}d`}
+                                  </span>
+                                ) : (
+                                  '—'
                                 )}
                               </td>
                               <td className="px-4 py-3 font-mono text-[11px] text-slate-500 dark:text-slate-400">
@@ -2405,10 +2574,14 @@ export default function App() {
                                     const nextStatus: StatusDocumento = val
                                       ? evaluateDateStatus(val)
                                       : d.statusDocumento;
-                                    await updateDocumento(d.id, {
-                                      dataValidade: val,
-                                      statusDocumento: nextStatus,
-                                    });
+                                    await safeAction(
+                                      () =>
+                                        updateDocumento(d.id, {
+                                          dataValidade: val,
+                                          statusDocumento: nextStatus,
+                                        }),
+                                      'Validade do documento atualizada.'
+                                    );
                                   }}
                                 />
                               </td>
@@ -2418,22 +2591,36 @@ export default function App() {
                               <td className="px-3.5 py-2.5 max-w-[260px] truncate text-slate-600 dark:text-slate-400">
                                 {d.resumoExtracao || '—'}
                               </td>
-                              <td className="px-3.5 py-2.5 text-right">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setDeleteTarget({
-                                      type: 'documento',
-                                      id: d.id,
-                                      title: `o documento "${d.nomeArquivo}"`,
-                                    })
-                                  }
-                                  className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
-                                  title="Excluir documento"
-                                  aria-label={`Excluir documento ${d.nomeArquivo}`}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                </button>
+                              <td className="px-3.5 py-2.5 text-right whitespace-nowrap">
+                                <div className="inline-flex items-center justify-end gap-1.5">
+                                  {d.arquivoUrl && (
+                                    <a
+                                      href={d.arquivoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 dark:border-white/[0.1] bg-white dark:bg-[#0B0F17] px-2.5 py-1 text-[11px] font-medium text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+                                      title="Abrir arquivo original"
+                                    >
+                                      <ExternalLink className="h-3 w-3" />
+                                      Ver Arquivo
+                                    </a>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setDeleteTarget({
+                                        type: 'documento',
+                                        id: d.id,
+                                        title: `o documento "${d.nomeArquivo}"`,
+                                      })
+                                    }
+                                    className="rounded-md p-1.5 text-slate-400 dark:text-slate-500 hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                                    title="Excluir documento"
+                                    aria-label={`Excluir documento ${d.nomeArquivo}`}
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
                               </td>
                             </tr>
                           ))
@@ -2469,6 +2656,7 @@ export default function App() {
               proprietarios={proprietarios}
               motoristas={motoristas}
               veiculos={veiculos}
+              categoriasFinanceiras={categoriasFinanceiras}
               searchQuery={searchQuery}
               onNewFrete={() => setManualModalMode('frete')}
               onToast={showToast}

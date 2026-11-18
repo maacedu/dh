@@ -49,6 +49,9 @@ export interface Motorista {
   situacaoCadastral: SituacaoCadastral;
   camposPendentes: string[];
   observacoes?: string;
+  rotaPadrao?: string;
+  valorDiariaPadrao?: number;
+  statusAtualizadoEm?: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -86,6 +89,8 @@ export interface Documento {
   camposPendentes: string[];
   resumoExtracao?: string;
   observacoes?: string;
+  arquivoUrl?: string;
+  storagePath?: string;
   createdAt?: unknown;
   updatedAt?: unknown;
 }
@@ -131,6 +136,7 @@ export interface PendenciaItem {
   categoria: 'vencido' | 'a_vencer' | 'faltante' | 'campo_pendente';
   descricao: string;
   dataReferencia?: string;
+  diasRestantes?: number;
 }
 
 export type TipoLancamento = 'receita' | 'despesa' | 'repasse';

@@ -115,7 +115,8 @@ service cloud.firestore {
       ])
       && data.keys().hasOnly([
         'ownerUid', 'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
-        'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'createdAt', 'updatedAt'
+        'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes',
+        'observacoes', 'rotaPadrao', 'valorDiariaPadrao', 'statusAtualizadoEm', 'createdAt', 'updatedAt'
       ])
       && isValidId(data.ownerUid)
       && (data.ownerUid == request.auth.uid || isAdmin())
@@ -130,6 +131,9 @@ service cloud.firestore {
       && isValidSituacao(data.situacaoCadastral)
       && isValidStringList(data.camposPendentes, 15)
       && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && (!('rotaPadrao' in data) || (data.rotaPadrao is string && data.rotaPadrao.size() <= 160))
+      && (!('valorDiariaPadrao' in data) || (data.valorDiariaPadrao is number && data.valorDiariaPadrao >= 0 && data.valorDiariaPadrao <= 1000000))
+      && (!('statusAtualizadoEm' in data) || (data.statusAtualizadoEm is string && data.statusAtualizadoEm.size() <= 32))
       && data.createdAt is timestamp
       && data.updatedAt is timestamp;
     }
@@ -172,7 +176,7 @@ service cloud.firestore {
       && data.keys().hasOnly([
         'ownerUid', 'tipoDocumento', 'nomeArquivo', 'mimeType', 'entidadeTipo',
         'entidadeId', 'entidadeNome', 'dataValidade', 'statusDocumento',
-        'camposPendentes', 'resumoExtracao', 'observacoes', 'createdAt', 'updatedAt'
+        'camposPendentes', 'resumoExtracao', 'observacoes', 'arquivoUrl', 'storagePath', 'createdAt', 'updatedAt'
       ])
       && isValidId(data.ownerUid)
       && (data.ownerUid == request.auth.uid || isAdmin())
@@ -190,6 +194,8 @@ service cloud.firestore {
       && isValidStringList(data.camposPendentes, 15)
       && (!('resumoExtracao' in data) || (data.resumoExtracao is string && data.resumoExtracao.size() <= 600))
       && (!('observacoes' in data) || (data.observacoes is string && data.observacoes.size() <= 500))
+      && (!('arquivoUrl' in data) || (data.arquivoUrl is string && data.arquivoUrl.size() <= 1200))
+      && (!('storagePath' in data) || (data.storagePath is string && data.storagePath.size() <= 300))
       && data.createdAt is timestamp
       && data.updatedAt is timestamp;
     }
@@ -352,10 +358,11 @@ service cloud.firestore {
           isAdmin() ||
           incoming().diff(existing()).affectedKeys().hasOnly([
             'nomeCompleto', 'cpf', 'cnh', 'categoriaCnh', 'validadeCnh',
-            'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes', 'observacoes', 'updatedAt'
+            'telefone', 'placa', 'proprietarioId', 'situacaoCadastral', 'camposPendentes',
+            'observacoes', 'rotaPadrao', 'valorDiariaPadrao', 'statusAtualizadoEm', 'updatedAt'
           ]) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['proprietarioId', 'updatedAt']) ||
-          incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'observacoes', 'updatedAt'])
+          incoming().diff(existing()).affectedKeys().hasOnly(['situacaoCadastral', 'statusAtualizadoEm', 'observacoes', 'updatedAt'])
         );
 
       allow delete: if isValidId(motoristaId) && isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin());
@@ -423,7 +430,8 @@ service cloud.firestore {
           isAdmin() ||
           incoming().diff(existing()).affectedKeys().hasOnly([
             'tipoDocumento', 'entidadeTipo', 'entidadeId', 'entidadeNome',
-            'dataValidade', 'statusDocumento', 'camposPendentes', 'resumoExtracao', 'observacoes', 'updatedAt'
+            'dataValidade', 'statusDocumento', 'camposPendentes', 'resumoExtracao',
+            'observacoes', 'arquivoUrl', 'storagePath', 'updatedAt'
           ]) ||
           incoming().diff(existing()).affectedKeys().hasOnly(['dataValidade', 'statusDocumento', 'observacoes', 'updatedAt'])
         );
